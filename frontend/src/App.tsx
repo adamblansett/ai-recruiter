@@ -17,9 +17,10 @@ import { fetchHealth, fetchStatus, SystemHealth, SystemStatus } from './api/clie
 import { ProfilePage } from './pages/Profile';
 import { JobsPage } from './pages/Jobs';
 import { RecruitersPage } from './pages/Recruiters';
+import { OutreachPage } from './pages/Outreach';
 
 export function App() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'jobs' | 'recruiters' | 'profile'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'jobs' | 'recruiters' | 'outreach' | 'profile'>('overview');
   const [health, setHealth] = useState<SystemHealth | null>(null);
   const [status, setStatus] = useState<SystemStatus | null>(null);
 
@@ -62,7 +63,7 @@ export function App() {
                   AI Recruiter
                 </span>
                 <span className="ml-2 text-xs font-mono uppercase px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                  v0.5.0 • M5
+                  v0.6.0 • M6
                 </span>
               </div>
             </div>
@@ -100,6 +101,16 @@ export function App() {
                 <Users className="w-4 h-4" /> Recruiters & Contacts
               </button>
               <button
+                onClick={() => setActiveTab('outreach')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
+                  activeTab === 'outreach'
+                    ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                }`}
+              >
+                <Mail className="w-4 h-4" /> Outreach & Approvals
+              </button>
+              <button
                 onClick={() => setActiveTab('profile')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
                   activeTab === 'profile'
@@ -130,6 +141,8 @@ export function App() {
           <JobsPage />
         ) : activeTab === 'recruiters' ? (
           <RecruitersPage />
+        ) : activeTab === 'outreach' ? (
+          <OutreachPage />
         ) : (
           <>
             {/* Banner Section */}
