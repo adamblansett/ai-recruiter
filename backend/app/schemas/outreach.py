@@ -58,3 +58,43 @@ class OutreachApprovalResponse(BaseModel):
     message_id: str
     sent_at: str
     channel: str
+
+
+# ================= Inbound Processing & Classification =================
+class InboundMessagePayload(BaseModel):
+    outreach_id: Optional[uuid.UUID] = None
+    sender_email: str
+    recipient_email: str = "adam.blansett@gmail.com"
+    subject: str
+    body_text: str
+    external_thread_id: Optional[str] = None
+    external_message_id: Optional[str] = None
+
+
+class InboundClassificationResult(BaseModel):
+    communication_id: uuid.UUID
+    intent: str  # 'INTERVIEW_REQUEST', 'INFORMATION_REQUEST', 'NOT_A_FIT_NOW', 'REJECTION'
+    sentiment: str  # 'POSITIVE', 'NEUTRAL', 'NEGATIVE'
+    has_calendar_link: bool
+    calendar_links: list[str] = Field(default_factory=list)
+    suggested_reply_markdown: str
+    recommended_pipeline_stage: str
+    received_at: datetime
+
+
+class CommunicationRead(BaseModel):
+    id: uuid.UUID
+    outreach_id: Optional[uuid.UUID] = None
+    external_thread_id: str
+    external_message_id: str
+    direction: str
+    sender_address: str
+    recipient_address: str
+    subject: str
+    body_text: str
+    classification_intent: Optional[str] = None
+    sentiment: Optional[str] = None
+    received_at: datetime
+    created_at: datetime
+
+    model_config = {"from_attributes": True}

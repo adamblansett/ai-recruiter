@@ -5,13 +5,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.schemas.outreach import (
+    CommunicationRead,
+    InboundClassificationResult,
+    InboundMessagePayload,
     OutreachApprovalRequest,
     OutreachApprovalResponse,
     OutreachDraftCreate,
     OutreachDraftRead,
     OutreachDraftUpdate,
 )
+from app.services.inbound_service import InboundClassificationService
 from app.services.outreach_service import OutreachService
+from app.models.outreach import Communication
+from sqlalchemy import select
 
 router = APIRouter(tags=["Outreach & Human Approval"])
 
@@ -125,3 +131,28 @@ async def reject_draft_endpoint(
     if not draft:
         raise HTTPException(status_code=404, detail="Draft not found")
     return serialize_draft(draft)
+
+
+# ================= Inbound Email & Communication Endpoints =================
+@router.post("/inbound/process", response_model=InboundClassificationResult, summary="Process Inbound Recruiter Message")
+async def process_inbound_recruiter_email(
+    payload: InboundMessagePayload,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Ingest, classify, extract calendar links, and generate AI suggested reply
+    for an incoming recruiter email. Updates opportunity pipeline stage automatically.
+    """
+    return await InboundClassificationService.process_inbound_message(db, payload)
+
+
+@router.get("/communications/history", response_model=List[CommunicationRead], summary="List Communication History")
+async def list_communication_history(
+    limit: int = Query(50, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+):
+    """Retrieve chronologically ordered inbound and outbound communication history."""
+    stmt = select(Communication).order_by(Communication.received_at.desc()).limit(limit)
+    result = await db.execute(stmt)
+    records = result.scalars().all()
+    return records

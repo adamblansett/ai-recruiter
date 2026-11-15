@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { 
   Activity, 
+  BarChart3,
   Briefcase, 
   Compass, 
   Database, 
@@ -18,9 +19,10 @@ import { ProfilePage } from './pages/Profile';
 import { JobsPage } from './pages/Jobs';
 import { RecruitersPage } from './pages/Recruiters';
 import { OutreachPage } from './pages/Outreach';
+import { AnalyticsPage } from './pages/Analytics';
 
 export function App() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'jobs' | 'recruiters' | 'outreach' | 'profile'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'jobs' | 'recruiters' | 'outreach' | 'profile' | 'analytics'>('overview');
   const [health, setHealth] = useState<SystemHealth | null>(null);
   const [status, setStatus] = useState<SystemStatus | null>(null);
 
@@ -120,6 +122,16 @@ export function App() {
               >
                 <User className="w-4 h-4" /> Candidate Profile
               </button>
+              <button
+                onClick={() => setActiveTab('analytics')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
+                  activeTab === 'analytics'
+                    ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                }`}
+              >
+                <BarChart3 className="w-4 h-4" /> Funnel Analytics
+              </button>
             </nav>
           </div>
 
@@ -143,6 +155,8 @@ export function App() {
           <RecruitersPage />
         ) : activeTab === 'outreach' ? (
           <OutreachPage />
+        ) : activeTab === 'analytics' ? (
+          <AnalyticsPage />
         ) : (
           <>
             {/* Banner Section */}

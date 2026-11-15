@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+from app.api.v1.analytics import router as analytics_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.candidate import router as candidate_router
 from app.api.v1.evaluations import router as evaluations_router
@@ -11,6 +12,7 @@ from app.api.v1.tasks import router as tasks_router
 
 api_router = APIRouter()
 api_router.include_router(system_router, prefix="/system", tags=["System"])
+api_router.include_router(analytics_router, tags=["Analytics & Funnel"])
 api_router.include_router(auth_router, tags=["Google Authentication"])
 api_router.include_router(candidate_router, prefix="/candidate", tags=["Candidate Profile"])
 api_router.include_router(resumes_router, prefix="/resumes", tags=["Resumes"])
