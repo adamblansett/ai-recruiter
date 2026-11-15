@@ -29,6 +29,23 @@ RULES:
 
 class EvaluationService:
     @classmethod
+    def check_hard_disqualifications(cls, job: JobOpportunity) -> Optional[str]:
+        """Scans job description and location for mandatory candidate disqualifiers."""
+        combined_text = f"{job.title} {job.location} {job.cleaned_description} {job.raw_description}".lower()
+
+        disqualifiers = [
+            ("Active Security Clearance required (TS/SCI/Polygraph)", ["ts/sci", "top secret", "security clearance required", "active secret clearance", "polygraph required"]),
+            ("Mandatory full-time on-site work requirement", ["5 days in office", "100% on-site", "must relocate", "no remote option"]),
+            ("Junior / Entry-level tenure mismatch", ["entry level", "internship", "0-1 years of experience", "junior developer"]),
+        ]
+
+        for label, keywords in disqualifiers:
+            for kw in keywords:
+                if kw in combined_text:
+                    return f"{label} (Keyword: '{kw}')"
+        return None
+
+    @classmethod
     async def evaluate_job(
         cls,
         db: AsyncSession,
@@ -51,6 +68,54 @@ class EvaluationService:
 
         if not profile:
             raise ValueError("Candidate profile not found")
+
+        # 3. Check Hard Disqualifications
+        disqualification_reason = cls.check_hard_disqualifications(job)
+        if disqualification_reason:
+            eval_result = JobEvaluationResult(
+                overall_score=25.0,
+                technical_match_score=40.0,
+                seniority_fit_score=30.0,
+                compensation_fit_score=None,
+                recommendation="SKIP",
+                mandatory_skills_met=[],
+                preferred_skills_met=[],
+                missing_qualifications=["Candidate criteria mismatch"],
+                strengths=[],
+                potential_concerns=[f"Disqualification: {disqualification_reason}"],
+                rationale_markdown=(
+                    f"### Opportunity Disqualified by Hard Filter\n\n"
+                    f"- **Reason:** {disqualification_reason}\n"
+                    f"- **Recommendation:** **SKIP**\n"
+                    f"- Does not satisfy candidate remote-first, senior tenure, or security criteria."
+                ),
+            )
+            evaluation = JobEvaluation(
+                job_id=job.id,
+                candidate_id=profile.id,
+                overall_score=eval_result.overall_score,
+                technical_match_score=eval_result.technical_match_score,
+                seniority_fit_score=eval_result.seniority_fit_score,
+                compensation_fit_score=eval_result.compensation_fit_score,
+                recommendation=eval_result.recommendation,
+                mandatory_skills_met=eval_result.mandatory_skills_met,
+                preferred_skills_met=eval_result.preferred_skills_met,
+                missing_qualifications=eval_result.missing_qualifications,
+                strengths=eval_result.strengths,
+                potential_concerns=eval_result.potential_concerns,
+                rationale_markdown=eval_result.rationale_markdown,
+                ai_provider="filter_engine",
+                ai_model="rule_based_filter",
+                prompt_version=PROMPT_VERSION,
+                prompt_tokens=0,
+                completion_tokens=0,
+                cost_usd=0.0,
+            )
+            db.add(evaluation)
+            job.pipeline_stage = "REJECTED"
+            await db.commit()
+            await db.refresh(evaluation)
+            return evaluation
 
         # 3. Assemble Demarcated Prompt
         candidate_skills_str = ", ".join(

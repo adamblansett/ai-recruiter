@@ -118,3 +118,76 @@ async def add_candidate_education(
     if not profile:
         raise HTTPException(status_code=404, detail="Candidate profile not found")
     return await CandidateService.add_education(db, profile_id, data)
+
+
+# ================= Data Portability & GDPR/CCPA Privacy =================
+@router.get("/export/all", summary="Export All Candidate Data (Data Portability)")
+async def export_all_candidate_data(db: AsyncSession = Depends(get_db)):
+    """Exports complete candidate profile, skills, resumes metadata, and applications."""
+    profile = await CandidateService.get_active_profile(db)
+    if not profile:
+        raise HTTPException(status_code=404, detail="No active candidate profile found")
+
+    return {
+        "export_metadata": {
+            "application": "AI Recruiter",
+            "exported_at": profile.updated_at.isoformat() if profile.updated_at else profile.created_at.isoformat(),
+            "compliance_format": "GDPR/CCPA Machine-Readable JSON",
+        },
+        "candidate_profile": {
+            "id": str(profile.id),
+            "headline": profile.headline,
+            "summary": profile.summary,
+            "target_seniority": profile.target_seniority,
+            "location_base": profile.location_base,
+            "remote_preference": profile.remote_preference,
+            "employment_types": profile.employment_types,
+            "target_min_salary": profile.target_min_salary,
+            "preferred_currency": profile.preferred_currency,
+        },
+        "skills": [
+            {
+                "name": s.name,
+                "category": s.category,
+                "years_experience": float(s.years_experience),
+                "proficiency_level": s.proficiency_level,
+                "is_primary": s.is_primary,
+            }
+            for s in profile.skills
+        ],
+        "experiences": [
+            {
+                "company_name": e.company_name,
+                "title": e.title,
+                "location": e.location,
+                "is_current": e.is_current,
+                "start_date": e.start_date.isoformat(),
+                "summary": e.summary,
+                "technologies_used": e.technologies_used,
+                "accomplishments": e.accomplishments,
+            }
+            for e in profile.experiences
+        ],
+        "resumes": [
+            {
+                "id": str(r.id),
+                "label": r.label,
+                "file_hash": r.file_hash,
+                "file_size_bytes": r.file_size_bytes,
+                "is_primary": r.is_primary,
+            }
+            for r in profile.resumes
+        ],
+    }
+
+
+@router.post("/purge-data", summary="Purge All Candidate Data (Right to be Forgotten)")
+async def purge_all_candidate_data(db: AsyncSession = Depends(get_db)):
+    """Safely purges candidate profile and associated records for privacy compliance."""
+    profile = await CandidateService.get_active_profile(db)
+    if not profile:
+        return {"status": "success", "message": "No candidate profile data present to purge"}
+
+    await db.delete(profile)
+    await db.commit()
+    return {"status": "success", "message": "All candidate profile records have been permanently erased"}

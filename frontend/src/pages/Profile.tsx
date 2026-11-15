@@ -11,7 +11,8 @@ import {
   Mail,
   ShieldCheck,
   Briefcase,
-  DollarSign
+  DollarSign,
+  Download
 } from 'lucide-react';
 
 interface Skill {
@@ -163,6 +164,24 @@ export function ProfilePage() {
       alert(err instanceof Error ? err.message : 'Update failed');
     } finally {
       setSavingPrefs(false);
+    }
+  }
+
+  async function handleExportData() {
+    try {
+      const res = await fetch('/api/v1/candidate/export/all');
+      if (!res.ok) throw new Error('Failed to export data');
+      const exportJson = await res.json();
+      const blob = new Blob([JSON.stringify(exportJson, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `adam_blansett_career_data_${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      setSuccessMsg('Candidate data archive downloaded successfully!');
+      setTimeout(() => setSuccessMsg(null), 3000);
+    } catch {
+      alert('Failed to export candidate records');
     }
   }
 
@@ -392,6 +411,16 @@ export function ProfilePage() {
             >
               {savingPrefs ? 'Saving...' : 'Update Opportunity Criteria'}
             </button>
+            <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
+              <span className="text-[11px] text-slate-500">Data Portability (GDPR/CCPA):</span>
+              <button
+                type="button"
+                onClick={handleExportData}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 border border-indigo-500/30 text-xs font-medium transition"
+              >
+                <Download className="w-3.5 h-3.5" /> Export Data (JSON)
+              </button>
+            </div>
           </form>
         </section>
       </div>
