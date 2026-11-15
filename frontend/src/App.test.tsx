@@ -24,8 +24,9 @@ describe('App Component', () => {
     const matches = screen.getAllByText(/AI Recruiter/i);
     expect(matches.length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/Autonomous Career Discovery/i)).toBeInTheDocument();
-    expect(screen.getByText(/Core Infrastructure Status/i)).toBeInTheDocument();
-    expect(screen.getByText(/Job Discovery Engine/i)).toBeInTheDocument();
-    expect(screen.getByText(/Outreach Approval Gate/i)).toBeInTheDocument();
+    expect(screen.getByText(/Core Infrastructure & AI Engine Status/i)).toBeInTheDocument();
+    expect(screen.getByText(/Built-in AI Engine/i)).toBeInTheDocument();
+    const profileButtons = screen.getAllByText(/Candidate Profile/i);
+    expect(profileButtons.length).toBeGreaterThanOrEqual(1);
   });
 });
