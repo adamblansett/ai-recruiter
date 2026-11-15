@@ -15,7 +15,16 @@ class GreenhouseBoardAdapter(BaseJobSourceAdapter):
     """
 
     def __init__(self, target_boards: Optional[List[str]] = None):
-        self.target_boards = target_boards or ["anthropic", "scaleapi", "openai"]
+        self.target_boards = target_boards or [
+            "anthropic",
+            "scaleapi",
+            "openai",
+            "stripe",
+            "gitlab",
+            "automattic",
+            "datadog",
+            "canonical",
+        ]
 
     @property
     def source_name(self) -> str:

@@ -29,5 +29,15 @@ class JobAdapterRegistry:
     def get_all_adapters(self) -> List[BaseJobSourceAdapter]:
         return list(self._adapters.values())
 
+    def add_greenhouse_board(self, board_slug: str) -> None:
+        gh = self._adapters.get("greenhouse_api")
+        if isinstance(gh, GreenhouseBoardAdapter) and board_slug.lower() not in gh.target_boards:
+            gh.target_boards.append(board_slug.lower())
+
+    def add_lever_site(self, site_slug: str) -> None:
+        lev = self._adapters.get("lever_api")
+        if isinstance(lev, LeverBoardAdapter) and site_slug.lower() not in lev.target_sites:
+            lev.target_sites.append(site_slug.lower())
+
 
 job_adapter_registry = JobAdapterRegistry()

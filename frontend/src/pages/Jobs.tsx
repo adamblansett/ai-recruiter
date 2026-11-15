@@ -227,6 +227,19 @@ export function JobsPage() {
         </div>
       </div>
 
+      {/* Target Company Boards Bar */}
+      <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-semibold text-slate-400">Target Boards:</span>
+          {['Anthropic', 'OpenAI', 'Stripe', 'GitLab', 'Automattic', 'Datadog', 'Figma', 'Retool'].map((c) => (
+            <span key={c} className="px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 font-medium">
+              {c}
+            </span>
+          ))}
+        </div>
+        <span className="text-[11px] text-slate-500 font-mono">Multi-adapter: Greenhouse API + Lever API + Remote Tech Feed</span>
+      </div>
+
       {/* Filters Bar */}
       <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-2 flex-1 min-w-[240px]">

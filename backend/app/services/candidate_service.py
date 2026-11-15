@@ -1,3 +1,5 @@
+import hashlib
+import os
 import uuid
 from datetime import date
 from typing import List, Optional
@@ -274,6 +276,30 @@ class CandidateService:
                 ],
             )
         )
+
+        # Automatically link master resume if present
+        for check_path in [
+            "backend/uploads/resumes/Adam_Blansett_Master_Resume.pdf",
+            "uploads/resumes/Adam_Blansett_Master_Resume.pdf",
+        ]:
+            if os.path.exists(check_path):
+                with open(check_path, "rb") as rf:
+                    r_bytes = rf.read()
+                r_hash = hashlib.sha256(r_bytes).hexdigest()
+                db.add(
+                    Resume(
+                        candidate_id=profile.id,
+                        label="Adam Blansett - Master Technical Resume (PDF)",
+                        file_path=check_path,
+                        file_hash=r_hash,
+                        file_size_bytes=len(r_bytes),
+                        mime_type="application/pdf",
+                        target_role_category="Staff / Senior Software Engineer",
+                        is_primary=True,
+                        extracted_text="Staff Software Engineer with 10+ years of high-impact engineering experience.",
+                    )
+                )
+                break
 
         await db.commit()
         await db.refresh(profile)

@@ -15,7 +15,14 @@ class LeverBoardAdapter(BaseJobSourceAdapter):
     """
 
     def __init__(self, target_sites: Optional[List[str]] = None):
-        self.target_sites = target_sites or ["figma", "retool"]
+        self.target_sites = target_sites or [
+            "figma",
+            "retool",
+            "postman",
+            "netflix",
+            "palantir",
+            "moderntreasury",
+        ]
 
     @property
     def source_name(self) -> str:

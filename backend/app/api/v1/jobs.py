@@ -4,6 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.adapters.jobs.base import JobSearchQuery
+from app.adapters.jobs.greenhouse_adapter import GreenhouseBoardAdapter
+from app.adapters.jobs.lever_adapter import LeverBoardAdapter
+from app.adapters.jobs.registry import job_adapter_registry
 from app.core.database import get_db
 from app.schemas.job import (
     JobDiscoveryResult,
@@ -13,8 +16,14 @@ from app.schemas.job import (
     ManualJobCreate,
 )
 from app.services.discovery_service import DiscoveryService
+from pydantic import BaseModel, Field
 
 router = APIRouter(tags=["Job Opportunities"])
+
+
+class AddTargetBoardPayload(BaseModel):
+    adapter_type: str = Field(..., description="'greenhouse' or 'lever'")
+    company_slug: str = Field(..., min_length=2, max_length=100)
 
 
 def serialize_job(job) -> JobOpportunityRead:
@@ -112,3 +121,35 @@ async def update_job_pipeline_stage(
     if not job:
         raise HTTPException(status_code=404, detail="Job opportunity not found")
     return serialize_job(job)
+
+
+@router.get("/adapters/info", summary="List Active Job Adapters & Target Companies")
+async def get_adapters_info():
+    """Returns active job discovery adapters and configured target company boards."""
+    adapters_info = []
+    for adapter in job_adapter_registry.get_all_adapters():
+        info = {
+            "source_name": adapter.source_name,
+            "type": adapter.__class__.__name__,
+        }
+        if isinstance(adapter, GreenhouseBoardAdapter):
+            info["target_boards"] = adapter.target_boards
+        elif isinstance(adapter, LeverBoardAdapter):
+            info["target_sites"] = adapter.target_sites
+        adapters_info.append(info)
+    return adapters_info
+
+
+@router.post("/adapters/target", summary="Add Target Company Board for Discovery")
+async def add_target_board(payload: AddTargetBoardPayload):
+    """Dynamically register a new Greenhouse or Lever target company board for automated crawling."""
+    if payload.adapter_type.lower() == "greenhouse":
+        job_adapter_registry.add_greenhouse_board(payload.company_slug)
+    elif payload.adapter_type.lower() == "lever":
+        job_adapter_registry.add_lever_site(payload.company_slug)
+    else:
+        raise HTTPException(status_code=400, detail="Invalid adapter_type. Must be 'greenhouse' or 'lever'.")
+    return {
+        "status": "success",
+        "message": f"Added '{payload.company_slug}' to {payload.adapter_type} target boards",
+    }
