@@ -16,9 +16,10 @@ import {
 import { fetchHealth, fetchStatus, SystemHealth, SystemStatus } from './api/client';
 import { ProfilePage } from './pages/Profile';
 import { JobsPage } from './pages/Jobs';
+import { RecruitersPage } from './pages/Recruiters';
 
 export function App() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'jobs' | 'profile'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'jobs' | 'recruiters' | 'profile'>('overview');
   const [health, setHealth] = useState<SystemHealth | null>(null);
   const [status, setStatus] = useState<SystemStatus | null>(null);
 
@@ -61,7 +62,7 @@ export function App() {
                   AI Recruiter
                 </span>
                 <span className="ml-2 text-xs font-mono uppercase px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                  v0.3.0 • M3
+                  v0.5.0 • M5
                 </span>
               </div>
             </div>
@@ -87,6 +88,16 @@ export function App() {
                 }`}
               >
                 <Compass className="w-4 h-4" /> Jobs & Pipeline
+              </button>
+              <button
+                onClick={() => setActiveTab('recruiters')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
+                  activeTab === 'recruiters'
+                    ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                }`}
+              >
+                <Users className="w-4 h-4" /> Recruiters & Contacts
               </button>
               <button
                 onClick={() => setActiveTab('profile')}
@@ -117,6 +128,8 @@ export function App() {
           <ProfilePage />
         ) : activeTab === 'jobs' ? (
           <JobsPage />
+        ) : activeTab === 'recruiters' ? (
+          <RecruitersPage />
         ) : (
           <>
             {/* Banner Section */}
@@ -239,10 +252,13 @@ export function App() {
                   </p>
                 </div>
 
-                <div className="p-5 rounded-xl bg-slate-900/50 border border-slate-800/80 hover:border-slate-700 transition">
+                <div 
+                  onClick={() => setActiveTab('recruiters')} 
+                  className="p-5 rounded-xl bg-slate-900/50 border border-indigo-500/40 hover:border-indigo-500 cursor-pointer transition shadow-lg shadow-indigo-500/5"
+                >
                   <div className="flex items-center justify-between mb-3">
-                    <Users className="w-5 h-5 text-cyan-400" />
-                    <span className="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">Milestone 5</span>
+                    <Users className="w-5 h-5 text-indigo-400" />
+                    <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Milestone 5 • Ready</span>
                   </div>
                   <h3 className="font-semibold text-white mb-1">Recruiter Discovery</h3>
                   <p className="text-xs text-slate-400 leading-relaxed">
