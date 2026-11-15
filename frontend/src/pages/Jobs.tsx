@@ -1,13 +1,17 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { 
+  Award, 
   Briefcase, 
+  CheckCircle2, 
   Compass, 
   ExternalLink, 
   Globe, 
   Plus, 
   Search, 
   Sparkles, 
-  X 
+  X, 
+  AlertTriangle, 
+  Cpu 
 } from 'lucide-react';
 
 interface JobOpportunity {
@@ -35,6 +39,23 @@ interface DiscoveryResult {
   sources_polled: string[];
 }
 
+interface EvaluationResult {
+  id: string;
+  overall_score: number;
+  technical_match_score: number;
+  seniority_fit_score: number;
+  compensation_fit_score: number | null;
+  recommendation: string;
+  mandatory_skills_met: string[];
+  preferred_skills_met: string[];
+  missing_qualifications: string[];
+  strengths: string[];
+  potential_concerns: string[];
+  rationale_markdown: string;
+  ai_provider: string;
+  ai_model: string;
+}
+
 export function JobsPage() {
   const [jobs, setJobs] = useState<JobOpportunity[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -53,6 +74,12 @@ export function JobsPage() {
   const [manualUrl, setManualUrl] = useState('');
   const [manualDesc, setManualDesc] = useState('');
   const [manualSalary, setManualSalary] = useState(180000);
+
+  // Evaluation Modal
+  const [evalModalOpen, setEvalModalOpen] = useState(false);
+  const [evaluatingId, setEvaluatingId] = useState<string | null>(null);
+  const [activeEvaluation, setActiveEvaluation] = useState<EvaluationResult | null>(null);
+  const [evaluatingJobTitle, setEvaluatingJobTitle] = useState<string>('');
 
   useEffect(() => {
     fetchJobs();
@@ -92,6 +119,27 @@ export function JobsPage() {
       setDiscoveryMsg('Discovery failed. Check backend logs.');
     } finally {
       setDiscovering(false);
+    }
+  }
+
+  async function handleEvaluateJob(job: JobOpportunity) {
+    try {
+      setEvaluatingId(job.id);
+      setEvaluatingJobTitle(job.title);
+      const res = await fetch('/api/v1/evaluations/evaluate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ job_id: job.id }),
+      });
+      if (!res.ok) throw new Error('Evaluation failed');
+      const evalData: EvaluationResult = await res.json();
+      setActiveEvaluation(evalData);
+      setEvalModalOpen(true);
+      fetchJobs();
+    } catch (err) {
+      alert('Error running AI evaluation.');
+    } finally {
+      setEvaluatingId(null);
     }
   }
 
@@ -158,7 +206,7 @@ export function JobsPage() {
             Job Discovery & Opportunities Pipeline
           </h2>
           <p className="text-sm text-slate-400">
-            Automated aggregation across Greenhouse, Lever, and remote feeds with SHA-256 deduplication.
+            Automated aggregation across Greenhouse, Lever, and remote feeds with built-in AI evaluation.
           </p>
         </div>
 
@@ -211,8 +259,8 @@ export function JobsPage() {
           >
             <option value="">All Pipeline Stages</option>
             <option value="DISCOVERED">Discovered</option>
-            <option value="QUALIFIED">Qualified</option>
             <option value="EVALUATED">Evaluated</option>
+            <option value="QUALIFIED">Qualified</option>
             <option value="OUTREACH_DRAFTED">Outreach Drafted</option>
             <option value="INTERVIEW">Interview</option>
             <option value="ARCHIVED">Archived</option>
@@ -244,7 +292,13 @@ export function JobsPage() {
                     <h3 className="font-bold text-white text-base leading-snug">{job.title}</h3>
                     <p className="text-xs text-indigo-400 font-medium">{job.company_name || 'Confidential'}</p>
                   </div>
-                  <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-bold whitespace-nowrap">
+                  <span className={`text-[10px] uppercase font-mono px-2 py-0.5 rounded border font-bold whitespace-nowrap ${
+                    job.pipeline_stage === 'EVALUATED'
+                      ? 'bg-violet-500/10 text-violet-400 border-violet-500/20'
+                      : job.pipeline_stage === 'QUALIFIED'
+                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                      : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
+                  }`}>
                     {job.pipeline_stage}
                   </span>
                 </div>
@@ -270,7 +324,7 @@ export function JobsPage() {
                   </span>
                 </div>
 
-                <div className="flex items-center justify-between gap-2 pt-1">
+                <div className="flex items-center justify-between gap-2 pt-1 flex-wrap">
                   <a
                     href={job.source_url}
                     target="_blank"
@@ -281,6 +335,14 @@ export function JobsPage() {
                   </a>
 
                   <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => handleEvaluateJob(job)}
+                      disabled={evaluatingId === job.id}
+                      className="px-2.5 py-1 rounded-lg bg-violet-600/20 hover:bg-violet-600/30 text-violet-300 border border-violet-500/30 text-xs font-semibold flex items-center gap-1 transition"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      {evaluatingId === job.id ? 'Evaluating...' : 'Evaluate with AI'}
+                    </button>
                     {job.pipeline_stage !== 'QUALIFIED' && (
                       <button
                         onClick={() => handleStageChange(job.id, 'QUALIFIED')}
@@ -302,6 +364,124 @@ export function JobsPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* AI Evaluation Review Modal */}
+      {evalModalOpen && activeEvaluation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 space-y-6 shadow-2xl my-8">
+            <div className="flex items-start justify-between">
+              <div>
+                <span className="text-xs uppercase tracking-wider text-slate-500 font-mono">AI Evaluation Breakdown</span>
+                <h3 className="text-xl font-bold text-white">{evaluatingJobTitle}</h3>
+              </div>
+              <button onClick={() => setEvalModalOpen(false)} className="text-slate-500 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Score & Recommendation Banner */}
+            <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between flex-wrap gap-4">
+              <div className="space-y-1">
+                <span className="text-xs text-slate-400">Match Suitability</span>
+                <div className="flex items-center gap-2">
+                  <span className={`text-3xl font-extrabold ${
+                    activeEvaluation.overall_score >= 80 ? 'text-emerald-400' : 'text-amber-400'
+                  }`}>
+                    {activeEvaluation.overall_score}%
+                  </span>
+                  <span className="text-xs text-slate-500">overall match</span>
+                </div>
+              </div>
+
+              <div className="space-y-1 text-right">
+                <span className="text-xs text-slate-400">AI Recommendation</span>
+                <div>
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${
+                    activeEvaluation.recommendation === 'STRONG_APPLY'
+                      ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                      : activeEvaluation.recommendation === 'APPLY'
+                      ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30'
+                      : 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                  }`}>
+                    {activeEvaluation.recommendation.replace('_', ' ')}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Detailed Metrics */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="p-3 rounded-lg bg-slate-950/60 border border-slate-800">
+                <span className="text-[11px] text-slate-500 uppercase">Technical Fit</span>
+                <p className="text-base font-bold text-white">{activeEvaluation.technical_match_score}%</p>
+              </div>
+              <div className="p-3 rounded-lg bg-slate-950/60 border border-slate-800">
+                <span className="text-[11px] text-slate-500 uppercase">Seniority Fit</span>
+                <p className="text-base font-bold text-white">{activeEvaluation.seniority_fit_score}%</p>
+              </div>
+              <div className="p-3 rounded-lg bg-slate-950/60 border border-slate-800">
+                <span className="text-[11px] text-slate-500 uppercase">Compensation</span>
+                <p className="text-base font-bold text-white">
+                  {activeEvaluation.compensation_fit_score ? `${activeEvaluation.compensation_fit_score}%` : 'Aligned'}
+                </p>
+              </div>
+            </div>
+
+            {/* Skills Matched */}
+            <div className="space-y-2">
+              <span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                <Award className="w-4 h-4 text-emerald-400" /> Matched Core Qualifications
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {activeEvaluation.mandatory_skills_met.map((s, idx) => (
+                  <span key={idx} className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-medium">
+                    {s}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Strengths & Potential Concerns */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div className="p-3 rounded-xl bg-slate-950/50 border border-slate-800 space-y-1.5">
+                <span className="font-semibold text-emerald-400 flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Strengths
+                </span>
+                <ul className="space-y-1 text-slate-300 list-disc list-inside">
+                  {activeEvaluation.strengths.map((str, idx) => (
+                    <li key={idx}>{str}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-950/50 border border-slate-800 space-y-1.5">
+                <span className="font-semibold text-amber-400 flex items-center gap-1">
+                  <AlertTriangle className="w-3.5 h-3.5" /> Considerations
+                </span>
+                <ul className="space-y-1 text-slate-300 list-disc list-inside">
+                  {activeEvaluation.potential_concerns.map((con, idx) => (
+                    <li key={idx}>{con}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            {/* Footer with Engine Info */}
+            <div className="border-t border-slate-800 pt-4 flex items-center justify-between text-xs text-slate-500">
+              <span className="flex items-center gap-1.5 font-mono">
+                <Cpu className="w-3.5 h-3.5 text-violet-400" />
+                Built-in AI • {activeEvaluation.ai_model} (0 keys required)
+              </span>
+              <button
+                onClick={() => setEvalModalOpen(false)}
+                className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition"
+              >
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
