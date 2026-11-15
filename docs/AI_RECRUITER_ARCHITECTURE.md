@@ -103,17 +103,18 @@ flowchart TB
 - **Scheduler:** Celery Beat for periodic executions (e.g., daily job scraping, follow-up checks, recruiter response syncing).
 - **Task Resilience:** Exponential backoff retries, dead-letter tracking, idempotency tokens to prevent duplicate task execution.
 
-### 4.4 AI Orchestration & Model Routing (`backend/app/adapters/ai/`)
+### 4.4 AI Orchestration & Built-in Engine (`backend/app/adapters/ai/`)
+- **Built-in Local AI by Default (Zero-Key Architecture):** The system does NOT require external commercial API keys (BYOK / BYOA) to operate. A containerized local inference engine (`ai_engine` running open-weights like Llama 3.2 3B or Qwen 2.5) and local embedded vector embeddings run directly within the application stack at zero external cost and with complete privacy.
 - **Abstract Interface:** `BaseAIProvider` defining asynchronous methods for structured completions, embeddings, and chat.
 - **Provider Implementations:**
-  - `OpenAIProvider` (GPT-4o, GPT-4o-mini)
-  - `AnthropicProvider` (Claude 3.5 Sonnet, Claude 3.5 Haiku)
-  - `GeminiProvider` (Gemini 1.5 Pro, Gemini 1.5 Flash)
-  - `OllamaProvider` / Local Open-Weights (Llama 3, Mistral for zero-cost local inference)
+  - `BuiltinLocalProvider` / `OllamaProvider` (**Primary Default:** Llama 3.2, Qwen 2.5, Mistral running inside the local Docker network; zero keys required)
+  - `GeminiProvider` (Optional cloud offload: Gemini 1.5 Pro / Flash)
+  - `AnthropicProvider` (Optional cloud offload: Claude 3.5 Sonnet / Haiku)
+  - `OpenAIProvider` (Optional cloud offload: GPT-4o / GPT-4o-mini)
 - **Model Routing Strategy:**
-  - *Tier 1 (High Reasoning):* Deep candidate-job match evaluation, complex company analysis, personalized cold outreach generation.
-  - *Tier 2 (Fast / Low Cost):* Job description parsing, keyword extraction, raw text normalization, response sentiment classification.
-- **Governance:** Strict JSON schema enforcement via Pydantic; real-time token and USD cost tracking recorded per evaluation in the database.
+  - *Default Built-in Tier:* Autonomous job extraction, candidate-job matching, gap analysis, and initial cold outreach drafting powered 100% locally.
+  - *Optional Cloud Tier:* If the candidate chooses to supply external API keys, the router can optionally delegate high-complexity reasoning, but will gracefully fallback to the built-in model if keys are absent or rate-limited.
+- **Governance:** Strict JSON schema enforcement via Pydantic; real-time token tracking and audit logging recorded per evaluation in the database.
 
 ### 4.5 Job Discovery Engine (`backend/app/adapters/jobs/`)
 - **Abstract Interface:** `BaseJobSourceAdapter` with methods:

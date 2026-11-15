@@ -31,6 +31,15 @@ services:
       timeout: 5s
       retries: 5
 
+  ai_engine:
+    image: ollama/ollama:latest
+    container_name: ai_recruiter_ai_engine
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
   backend:
     build:
       context: .
@@ -49,6 +58,9 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/1
       - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - AI_PROVIDER_DEFAULT=builtin
+      - OLLAMA_BASE_URL=http://ai_engine:11434
+      - BUILTIN_MODEL_NAME=llama3.2:3b
     volumes:
       - ./backend:/app
       - uploads_data:/app/uploads
@@ -57,6 +69,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      ai_engine:
+        condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 10s
@@ -100,3 +114,4 @@ volumes:
   postgres_data:
   redis_data:
   uploads_data:
+  ollama_data:

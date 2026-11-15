@@ -38,6 +38,17 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "./uploads"
     MAX_UPLOAD_SIZE_BYTES: int = 5 * 1024 * 1024  # 5 MB
 
+    # AI Configuration (Built-in Local AI is default)
+    AI_PROVIDER_DEFAULT: str = "builtin"  # 'builtin' (local open-weights), 'gemini', 'anthropic', 'openai'
+    OLLAMA_BASE_URL: str = "http://localhost:11434"
+    BUILTIN_MODEL_NAME: str = "llama3.2:3b"
+    BUILTIN_EMBEDDING_MODEL: str = "nomic-embed-text"
+
+    # Optional Cloud AI Keys (BYOK / BYOA - completely optional)
+    OPENAI_API_KEY: Optional[str] = None
+    ANTHROPIC_API_KEY: Optional[str] = None
+    GEMINI_API_KEY: Optional[str] = None
+
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
