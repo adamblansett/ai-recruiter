@@ -109,15 +109,40 @@ Guidelines:
 - Return format: First line: "Subject: <subject>", followed by body.
 """
         provider = ai_router.get_provider()
-        subject = f"Regarding {job.title} at {company_name} — Adam Blansett"
-        body_text = (
-            f"Hi {recruiter_first_name},\n\n"
-            f"I noticed {company_name} is looking for a {job.title}. With 10+ years of software engineering "
-            f"experience architecting resilient backend systems, distributed async queues, and AI workflows "
-            f"using {skills_summary}, I believe my background aligns strongly with your engineering goals.\n\n"
-            f"I have attached my resume for your review. Would you be open to a brief conversation this week to discuss how I might contribute to the team?\n\n"
-            f"Best regards,\nAdam Blansett\nhttps://linkedin.com/in/adamblansett"
-        )
+        channel = data.channel.upper()
+        if channel == "LINKEDIN_CONNECT":
+            subject = f"Connect regarding {job.title}"
+            body_text = (
+                f"Hi {recruiter_first_name}, I saw {company_name} is hiring for a {job.title}. "
+                f"With 10+ years architecting distributed backend and AI systems, I would love to connect "
+                f"and follow your team's engineering work!"
+            )
+            # Guarantee strict 300-char LinkedIn invitation limit
+            if len(body_text) > 300:
+                body_text = body_text[:297] + "..."
+        elif channel == "LINKEDIN_INMAIL":
+            subject = f"{job.title} Opportunity — Adam Blansett (Staff/Senior Engineer)"
+            body_text = (
+                f"Hi {recruiter_first_name},\n\n"
+                f"I hope you're having a great week. I noticed {company_name} is scaling and hiring for a {job.title}.\n\n"
+                f"As a Senior/Staff Software Engineer with 10+ years architecting high-throughput backend APIs, "
+                f"distributed async task queues (FastAPI, PostgreSQL, Redis, Celery), and enterprise AI orchestration, "
+                f"I am very interested in learning more about the team's technical roadmap.\n\n"
+                f"Would you be open to a brief chat or introducing me to the hiring manager?\n\n"
+                f"Best,\nAdam Blansett\nhttps://linkedin.com/in/adamblansett"
+            )
+        else:
+            # GMAIL default
+            channel = "GMAIL"
+            subject = f"Regarding {job.title} at {company_name} — Adam Blansett"
+            body_text = (
+                f"Hi {recruiter_first_name},\n\n"
+                f"I noticed {company_name} is looking for a {job.title}. With 10+ years of software engineering "
+                f"experience architecting resilient backend systems, distributed async queues, and AI workflows "
+                f"using {skills_summary}, I believe my background aligns strongly with your engineering goals.\n\n"
+                f"I have attached my resume for your review. Would you be open to a brief conversation this week to discuss how I might contribute to the team?\n\n"
+                f"Best regards,\nAdam Blansett\nhttps://linkedin.com/in/adamblansett"
+            )
 
         try:
             if await provider.is_available():
@@ -140,7 +165,7 @@ Guidelines:
             recruiter_id=recruiter.id,
             candidate_id=profile.id,
             resume_id=resume_id,
-            channel=data.channel,
+            channel=channel,
             subject=subject,
             body_markdown=body_text,
             body_html=body_html,

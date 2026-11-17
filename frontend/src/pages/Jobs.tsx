@@ -11,7 +11,9 @@ import {
   Sparkles, 
   X, 
   AlertTriangle, 
-  Cpu 
+  Cpu,
+  BookOpen,
+  Download 
 } from 'lucide-react';
 
 interface JobOpportunity {
@@ -56,6 +58,39 @@ interface EvaluationResult {
   ai_model: string;
 }
 
+interface InterviewPrepQuestion {
+  category: string;
+  question: string;
+  difficulty: string;
+  talking_points: string[];
+  relevant_experience_tie_in: string;
+}
+
+interface StarTalkingPoint {
+  theme: string;
+  situation_task: string;
+  action: string;
+  result: string;
+  skills_demonstrated: string[];
+}
+
+interface ReverseInterviewQuestion {
+  category: string;
+  question: string;
+  intended_insight: string;
+}
+
+interface InterviewPrepPlan {
+  job_id: string;
+  job_title: string;
+  company_name: string;
+  company_tech_focus: string;
+  recommended_focus_areas: string[];
+  technical_questions: InterviewPrepQuestion[];
+  star_talking_points: StarTalkingPoint[];
+  reverse_interview_questions: ReverseInterviewQuestion[];
+}
+
 export function JobsPage() {
   const [jobs, setJobs] = useState<JobOpportunity[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -80,6 +115,15 @@ export function JobsPage() {
   const [evaluatingId, setEvaluatingId] = useState<string | null>(null);
   const [activeEvaluation, setActiveEvaluation] = useState<EvaluationResult | null>(null);
   const [evaluatingJobTitle, setEvaluatingJobTitle] = useState<string>('');
+
+  // Interview Prep Modal
+  const [prepModalOpen, setPrepModalOpen] = useState(false);
+  const [loadingPrep, setLoadingPrep] = useState(false);
+  const [activePrep, setActivePrep] = useState<InterviewPrepPlan | null>(null);
+  const [prepTab, setPrepTab] = useState<'questions' | 'star' | 'reverse'>('questions');
+
+  // Tailored Resume state
+  const [tailoringJobId, setTailoringJobId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchJobs();
@@ -154,6 +198,42 @@ export function JobsPage() {
       fetchJobs();
     } catch (err) {
       console.error(err);
+    }
+  }
+
+  async function handleOpenInterviewPrep(job: JobOpportunity) {
+    try {
+      setLoadingPrep(true);
+      setPrepModalOpen(true);
+      const res = await fetch(`/api/v1/jobs/${job.id}/interview-prep`);
+      if (!res.ok) throw new Error('Failed to load interview prep plan');
+      const data: InterviewPrepPlan = await res.json();
+      setActivePrep(data);
+    } catch {
+      alert('Failed to generate interview prep for this role.');
+      setPrepModalOpen(false);
+    } finally {
+      setLoadingPrep(false);
+    }
+  }
+
+  async function handleDownloadTailoredResume(jobId: string) {
+    try {
+      setTailoringJobId(jobId);
+      const res = await fetch(`/api/v1/jobs/${jobId}/tailored-resume/download`);
+      if (!res.ok) throw new Error('Failed to generate tailored resume');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Adam_Blansett_Tailored_Resume.pdf`;
+      a.click();
+      setDiscoveryMsg('Tailored single-page PDF resume generated and downloaded successfully!');
+      setTimeout(() => setDiscoveryMsg(null), 4000);
+    } catch {
+      alert('Error generating tailored PDF resume.');
+    } finally {
+      setTailoringJobId(null);
     }
   }
 
@@ -347,14 +427,29 @@ export function JobsPage() {
                     View Original <ExternalLink className="w-3 h-3" />
                   </a>
 
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <button
+                      onClick={() => handleOpenInterviewPrep(job)}
+                      className="px-2.5 py-1 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-semibold flex items-center gap-1 transition"
+                      title="AI Technical & Architectural Interview Prep"
+                    >
+                      <BookOpen className="w-3.5 h-3.5" /> Prep
+                    </button>
+                    <button
+                      onClick={() => handleDownloadTailoredResume(job.id)}
+                      disabled={tailoringJobId === job.id}
+                      className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-medium flex items-center gap-1 transition disabled:opacity-50"
+                      title="Generate Single-Page PDF Tailored for this Role"
+                    >
+                      <Download className="w-3.5 h-3.5" /> {tailoringJobId === job.id ? 'Tailoring...' : 'Resume PDF'}
+                    </button>
                     <button
                       onClick={() => handleEvaluateJob(job)}
                       disabled={evaluatingId === job.id}
                       className="px-2.5 py-1 rounded-lg bg-violet-600/20 hover:bg-violet-600/30 text-violet-300 border border-violet-500/30 text-xs font-semibold flex items-center gap-1 transition"
                     >
                       <Sparkles className="w-3.5 h-3.5" />
-                      {evaluatingId === job.id ? 'Evaluating...' : 'Evaluate with AI'}
+                      {evaluatingId === job.id ? '...' : 'Evaluate'}
                     </button>
                     {job.pipeline_stage !== 'QUALIFIED' && (
                       <button
@@ -568,6 +663,147 @@ export function JobsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* AI Interview Preparation Modal */}
+      {prepModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-3xl w-full p-6 sm:p-8 space-y-6 shadow-2xl my-8">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="space-y-1">
+                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                  <BookOpen className="w-5 h-5 text-indigo-400" />
+                  Role-Specific Interview Prep & Strategy
+                </h3>
+                <p className="text-xs text-indigo-300 font-medium">
+                  {activePrep?.job_title} • {activePrep?.company_name}
+                </p>
+              </div>
+              <button onClick={() => setPrepModalOpen(false)} className="text-slate-500 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {loadingPrep ? (
+              <div className="p-12 text-center text-slate-400 flex flex-col items-center gap-3">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+                <p className="text-xs">Synthesizing role requirements, architecture challenges, and STAR talking points...</p>
+              </div>
+            ) : activePrep ? (
+              <div className="space-y-6">
+                {/* Focus Areas Banner */}
+                <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
+                  <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Identified Technical Focus Areas:</span>
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {activePrep.recommended_focus_areas.map((fa, i) => (
+                      <span key={i} className="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 text-xs font-semibold">
+                        {fa}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Tabs */}
+                <div className="flex gap-2 border-b border-slate-800 pb-2">
+                  <button
+                    onClick={() => setPrepTab('questions')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                      prepTab === 'questions'
+                        ? 'bg-indigo-600 text-white'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                    }`}
+                  >
+                    Anticipated Technical Questions ({activePrep.technical_questions.length})
+                  </button>
+                  <button
+                    onClick={() => setPrepTab('star')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                      prepTab === 'star'
+                        ? 'bg-indigo-600 text-white'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                    }`}
+                  >
+                    STAR Talking Points ({activePrep.star_talking_points.length})
+                  </button>
+                  <button
+                    onClick={() => setPrepTab('reverse')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                      prepTab === 'reverse'
+                        ? 'bg-indigo-600 text-white'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                    }`}
+                  >
+                    Questions for Interviewer ({activePrep.reverse_interview_questions.length})
+                  </button>
+                </div>
+
+                {/* Tab 1: Questions */}
+                {prepTab === 'questions' && (
+                  <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
+                    {activePrep.technical_questions.map((q, idx) => (
+                      <div key={idx} className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-mono uppercase font-bold text-indigo-400">{q.category}</span>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-violet-500/10 text-violet-300 border border-violet-500/20 font-bold">
+                            {q.difficulty}
+                          </span>
+                        </div>
+                        <h4 className="text-sm font-bold text-white leading-snug">{q.question}</h4>
+                        <div className="space-y-1 text-xs text-slate-300 pt-1">
+                          <span className="text-slate-400 font-semibold text-[11px]">Recommended Talking Points:</span>
+                          <ul className="list-disc list-inside space-y-1 pl-1">
+                            {q.talking_points.map((tp, i) => (
+                              <li key={i}>{tp}</li>
+                            ))}
+                          </ul>
+                        </div>
+                        <p className="text-[11px] text-emerald-400/90 font-mono pt-1">
+                          Tie-in: {q.relevant_experience_tie_in}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Tab 2: STAR */}
+                {prepTab === 'star' && (
+                  <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
+                    {activePrep.star_talking_points.map((star, idx) => (
+                      <div key={idx} className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2 text-xs">
+                        <h4 className="text-sm font-bold text-white">{star.theme}</h4>
+                        <div className="space-y-1.5 text-slate-300">
+                          <p><strong className="text-indigo-400">Situation / Challenge:</strong> {star.situation_task}</p>
+                          <p><strong className="text-indigo-400">Action:</strong> {star.action}</p>
+                          <p><strong className="text-emerald-400">Result & Impact:</strong> {star.result}</p>
+                        </div>
+                        <div className="flex flex-wrap gap-1 pt-1">
+                          {star.skills_demonstrated.map((sk, i) => (
+                            <span key={i} className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400">
+                              {sk}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Tab 3: Reverse Questions */}
+                {prepTab === 'reverse' && (
+                  <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+                    {activePrep.reverse_interview_questions.map((rq, idx) => (
+                      <div key={idx} className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 space-y-1">
+                        <span className="text-[10px] font-mono uppercase font-bold text-indigo-400">{rq.category}</span>
+                        <p className="text-sm font-bold text-white">{rq.question}</p>
+                        <p className="text-xs text-slate-400">Strategic Value: {rq.intended_insight}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : null}
           </div>
         </div>
       )}

@@ -1,6 +1,7 @@
 import uuid
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.adapters.jobs.base import JobSearchQuery
@@ -8,6 +9,7 @@ from app.adapters.jobs.greenhouse_adapter import GreenhouseBoardAdapter
 from app.adapters.jobs.lever_adapter import LeverBoardAdapter
 from app.adapters.jobs.registry import job_adapter_registry
 from app.core.database import get_db
+from app.schemas.interview_prep import InterviewPrepPlan
 from app.schemas.job import (
     JobDiscoveryResult,
     JobOpportunityRead,
@@ -16,6 +18,8 @@ from app.schemas.job import (
     ManualJobCreate,
 )
 from app.services.discovery_service import DiscoveryService
+from app.services.interview_prep_service import InterviewPrepService
+from app.services.tailored_artifact_service import TailoredArtifactService
 from pydantic import BaseModel, Field
 
 router = APIRouter(tags=["Job Opportunities"])
@@ -153,3 +157,49 @@ async def add_target_board(payload: AddTargetBoardPayload):
         "status": "success",
         "message": f"Added '{payload.company_slug}' to {payload.adapter_type} target boards",
     }
+
+
+@router.get("/{job_id}/interview-prep", response_model=InterviewPrepPlan, summary="Generate Role-Specific AI Interview Prep")
+async def get_interview_prep(
+    job_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Synthesize job requirements, company technical focus, and candidate verified experience
+    to generate technical architecture questions, STAR talking points, and reverse-interview questions.
+    """
+    try:
+        return await InterviewPrepService.generate_prep_plan(db, job_id)
+    except ValueError as ve:
+        raise HTTPException(status_code=404, detail=str(ve))
+
+
+@router.post("/{job_id}/tailored-artifacts", summary="Generate Role-Specific Tailored Resume & Cover Letter")
+async def generate_tailored_artifacts(
+    job_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Dynamically generates a customized single-page PDF resume and targeted cover letter
+    highlighting the candidate's most relevant skills and achievements for this specific role.
+    """
+    try:
+        return await TailoredArtifactService.generate_tailored_artifacts(db, job_id)
+    except ValueError as ve:
+        raise HTTPException(status_code=404, detail=str(ve))
+
+
+@router.get("/{job_id}/tailored-resume/download", summary="Download Tailored PDF Resume")
+async def download_tailored_resume(
+    job_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """Download the generated role-specific tailored PDF resume."""
+    artifacts = await TailoredArtifactService.generate_tailored_artifacts(db, job_id)
+    pdf_path = artifacts["resume_pdf_path"]
+    filename = f"Adam_Blansett_{artifacts['company_name']}_Tailored_Resume.pdf"
+    return FileResponse(
+        path=pdf_path,
+        media_type="application/pdf",
+        filename=filename,
+    )

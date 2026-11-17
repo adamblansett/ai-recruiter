@@ -6,7 +6,9 @@ import {
   Send, 
   ShieldCheck, 
   Trash2, 
-  User 
+  User,
+  Copy,
+  Check 
 } from 'lucide-react';
 
 interface OutreachDraft {
@@ -39,6 +41,13 @@ export function OutreachPage() {
 
   // Status message
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  function handleCopy(draft: OutreachDraft) {
+    navigator.clipboard.writeText(draft.body_markdown);
+    setCopiedId(draft.id);
+    setTimeout(() => setCopiedId(null), 2500);
+  }
 
   useEffect(() => {
     fetchDrafts();
@@ -188,13 +197,22 @@ export function OutreachPage() {
                   </p>
                 </div>
 
-                <span className={`text-[10px] uppercase font-mono px-2.5 py-1 rounded font-bold border ${
-                  draft.status === 'SENT'
-                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                    : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                }`}>
-                  {draft.status.replace('_', ' ')}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className={`text-[10px] uppercase font-mono px-2 py-0.5 rounded font-semibold border ${
+                    draft.channel && draft.channel.includes('LINKEDIN')
+                      ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                      : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
+                  }`}>
+                    {draft.channel ? draft.channel.replace('_', ' ') : 'GMAIL'}
+                  </span>
+                  <span className={`text-[10px] uppercase font-mono px-2.5 py-1 rounded font-bold border ${
+                    draft.status === 'SENT'
+                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                      : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                  }`}>
+                    {draft.status.replace('_', ' ')}
+                  </span>
+                </div>
               </div>
 
               {/* Message Content Editor */}
@@ -240,16 +258,32 @@ export function OutreachPage() {
               <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 flex-wrap gap-2 text-xs">
                 {draft.status === 'AWAITING_APPROVAL' ? (
                   <>
-                    <button
-                      onClick={() => {
-                        setEditingId(draft.id);
-                        setEditSubject(draft.subject);
-                        setEditBody(draft.body_markdown);
-                      }}
-                      className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center gap-1.5 transition"
-                    >
-                      <Edit3 className="w-3.5 h-3.5" /> Edit Message
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          setEditingId(draft.id);
+                          setEditSubject(draft.subject);
+                          setEditBody(draft.body_markdown);
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center gap-1.5 transition"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" /> Edit Message
+                      </button>
+
+                      <button
+                        onClick={() => handleCopy(draft)}
+                        className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center gap-1.5 transition"
+                        title="Copy to clipboard"
+                      >
+                        {copiedId === draft.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                        {copiedId === draft.id ? 'Copied' : 'Copy'}
+                      </button>
+
+                      <span className="text-[11px] font-mono text-slate-500 pl-1">
+                        {draft.body_markdown.length} chars
+                        {draft.channel === 'LINKEDIN_CONNECT' && ' / 300 max'}
+                      </span>
+                    </div>
 
                     <div className="flex items-center gap-2">
                       <button
@@ -262,14 +296,14 @@ export function OutreachPage() {
                         onClick={() => handleApproveAndSend(draft.id)}
                         className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold flex items-center gap-1.5 shadow-lg shadow-emerald-600/20 transition"
                       >
-                        <Send className="w-3.5 h-3.5" /> Approve & Send via Gmail
+                        <Send className="w-3.5 h-3.5" /> Approve & Send
                       </button>
                     </div>
                   </>
                 ) : (
                   <div className="flex items-center justify-between w-full text-slate-500 font-mono text-[11px]">
                     <span>Sent: {new Date(draft.sent_at || draft.created_at).toLocaleString()}</span>
-                    <span>Gmail ID: {draft.external_message_id}</span>
+                    <span>Channel: {draft.channel} • ID: {draft.external_message_id}</span>
                   </div>
                 )}
               </div>
