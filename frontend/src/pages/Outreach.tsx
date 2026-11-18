@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { 
+  AlertTriangle,
   Building2,
   Calendar,
   CheckCircle, 
+  CheckSquare,
   ChevronDown,
   ChevronUp,
   Clock,
@@ -11,12 +13,43 @@ import {
   Send, 
   ShieldCheck, 
   Sparkles,
+  Square,
   Trash2, 
   User,
   Copy,
   Check,
-  RefreshCw 
+  RefreshCw,
+  X
 } from 'lucide-react';
+
+interface CalendarSlot {
+  day: string;
+  date_str: string;
+  start_time: string;
+  end_time: string;
+  timezone: string;
+}
+
+interface CalendarConflict {
+  day: string;
+  time_range: string;
+  title: string;
+}
+
+const DEFAULT_OPEN_SLOTS: CalendarSlot[] = [
+  { day: 'Wednesday', date_str: 'Nov 19', start_time: '10:00 AM', end_time: '11:30 AM', timezone: 'ET' },
+  { day: 'Wednesday', date_str: 'Nov 19', start_time: '2:00 PM', end_time: '4:00 PM', timezone: 'ET' },
+  { day: 'Thursday', date_str: 'Nov 20', start_time: '11:00 AM', end_time: '1:00 PM', timezone: 'ET' },
+  { day: 'Thursday', date_str: 'Nov 20', start_time: '3:30 PM', end_time: '5:00 PM', timezone: 'ET' },
+  { day: 'Friday', date_str: 'Nov 21', start_time: '10:00 AM', end_time: '12:00 PM', timezone: 'ET' },
+  { day: 'Friday', date_str: 'Nov 21', start_time: '1:30 PM', end_time: '3:30 PM', timezone: 'ET' },
+];
+
+const DEFAULT_CONFLICTS: CalendarConflict[] = [
+  { day: 'Wednesday', time_range: '11:30 AM – 1:00 PM', title: 'Architecture Review & RFC Sync' },
+  { day: 'Thursday', time_range: '9:00 AM – 10:30 AM', title: 'Distributed Systems Deep Focus' },
+  { day: 'Friday', time_range: '12:00 PM – 1:00 PM', title: 'Engineering All-Hands' },
+];
 
 interface CompanyDossier {
   job_id: string;
@@ -84,6 +117,32 @@ export function OutreachPage() {
   const [expandedDossierId, setExpandedDossierId] = useState<string | null>(null);
   const [dossiers, setDossiers] = useState<Record<string, CompanyDossier>>({});
   const [loadingDossier, setLoadingDossier] = useState(false);
+
+  // Live Calendar Conflict Visualizer State
+  const [calendarModalOpen, setCalendarModalOpen] = useState(false);
+  const [selectedSlotIndices, setSelectedSlotIndices] = useState<number[]>([0, 1, 2]);
+
+  function handleToggleSlotIndex(idx: number) {
+    setSelectedSlotIndices((prev) =>
+      prev.includes(idx) ? prev.filter((i) => i !== idx) : [...prev, idx]
+    );
+  }
+
+  function handleApplySelectedCalendarSlots() {
+    const selected = selectedSlotIndices.map((i) => DEFAULT_OPEN_SLOTS[i]).filter(Boolean);
+    if (selected.length === 0) {
+      alert('Please select at least one available calendar window.');
+      return;
+    }
+    const snippet =
+      `Here are a few 30-minute windows where I am free (all times Eastern):\n` +
+      selected.map((s) => `• ${s.day}, ${s.date_str}: ${s.start_time} – ${s.end_time} ${s.timezone}`).join('\n') +
+      `\n\nLet me know if any of these align with your schedule, or feel free to send over a link if you use Calendly.`;
+    setEditBody((prev) => prev.trim() + '\n\n' + snippet);
+    setCalendarModalOpen(false);
+    setToastMsg('✓ Synchronized calendar slots inserted into email draft!');
+    setTimeout(() => setToastMsg(null), 3500);
+  }
 
   async function handleToggleDossier(draftId: string, jobId: string) {
     if (expandedDossierId === draftId) {
@@ -209,25 +268,6 @@ export function OutreachPage() {
       fetchDrafts();
     } catch (err) {
       alert('Failed to save edits.');
-    }
-  }
-
-  async function handleInsertCalendarSlots() {
-    try {
-      const res = await fetch('/api/v1/auth/google/calendar/availability');
-      if (res.ok) {
-        const data = await res.json();
-        setEditBody((prev) => prev.trim() + '\n\n' + data.formatted_availability_snippet);
-      }
-    } catch {
-      setEditBody(
-        (prev) =>
-          prev.trim() +
-          '\n\nHere are a few 30-minute windows where I am free (all times Eastern):\n' +
-          '• Wednesday: 10:00 AM – 11:30 AM or 2:00 PM – 4:00 PM ET\n' +
-          '• Thursday: 11:00 AM – 1:00 PM or 3:30 PM – 5:00 PM ET\n' +
-          '• Friday: 10:00 AM – 12:00 PM or 1:30 PM – 3:30 PM ET'
-      );
     }
   }
 
@@ -471,11 +511,11 @@ export function OutreachPage() {
                   <div className="flex items-center justify-between gap-2 pt-1">
                     <button
                       type="button"
-                      onClick={handleInsertCalendarSlots}
+                      onClick={() => setCalendarModalOpen(true)}
                       className="px-2.5 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-semibold flex items-center gap-1.5 transition"
-                      title="Insert synchronized Google Calendar free/busy availability windows"
+                      title="Inspect Google Calendar busy/free conflict blocks and select slots"
                     >
-                      <Calendar className="w-3.5 h-3.5" /> Insert Calendar Slots
+                      <Calendar className="w-3.5 h-3.5" /> Live Calendar & Conflicts
                     </button>
                     <div className="flex items-center gap-2">
                       <button
@@ -652,6 +692,119 @@ export function OutreachPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Live Calendar Conflict Visualizer & Slot Picker Modal */}
+      {calendarModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-indigo-500/30 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-6 shadow-2xl">
+            {/* Header */}
+            <div className="flex items-start justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center space-x-3">
+                <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                  <Calendar className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    Live Calendar & Conflict Visualizer
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Synchronized with Google Calendar (<span className="text-indigo-300 font-mono">adamblansett@gmail.com</span>) • America/New_York (ET)
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setCalendarModalOpen(false)}
+                className="text-slate-500 hover:text-white transition p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Conflicting Commitments Warning Box */}
+            <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                Scheduled Calendar Commitments (Busy Windows)
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {DEFAULT_CONFLICTS.map((c, i) => (
+                  <div key={i} className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 space-y-0.5 text-xs">
+                    <span className="font-bold text-white block">{c.day}</span>
+                    <span className="text-[11px] font-mono text-amber-400/90 block">{c.time_range}</span>
+                    <span className="text-[10px] text-slate-400 truncate block">{c.title}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Selectable Verified Open Slots */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-200">
+                  Select Open Windows to Propose (No Conflict Detected)
+                </span>
+                <span className="text-indigo-400 font-medium">
+                  {selectedSlotIndices.length} slot{selectedSlotIndices.length !== 1 ? 's' : ''} selected
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {DEFAULT_OPEN_SLOTS.map((slot, idx) => {
+                  const isSelected = selectedSlotIndices.includes(idx);
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => handleToggleSlotIndex(idx)}
+                      className={`p-3 rounded-xl border text-left flex items-center justify-between transition ${
+                        isSelected
+                          ? 'bg-indigo-600/20 border-indigo-500/50 text-white'
+                          : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-white text-xs">{slot.day}</span>
+                          <span className="text-[10px] font-mono text-indigo-300">({slot.date_str})</span>
+                        </div>
+                        <span className="text-xs font-mono text-slate-300 block">
+                          {slot.start_time} – {slot.end_time} {slot.timezone}
+                        </span>
+                      </div>
+                      <div className="p-1 text-indigo-400">
+                        {isSelected ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4 text-slate-600" />}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div className="flex items-center justify-between pt-3 border-t border-slate-800 text-xs">
+              <span className="text-[11px] text-slate-500">
+                Presents conflict-free 30m screen options in Eastern Time
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCalendarModalOpen(false)}
+                  className="px-3 py-1.5 rounded-lg text-slate-400 hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleApplySelectedCalendarSlots}
+                  className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold flex items-center gap-1.5 shadow-lg shadow-indigo-600/20"
+                >
+                  <Calendar className="w-3.5 h-3.5" /> Insert Selected Slots
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

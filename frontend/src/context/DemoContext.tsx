@@ -492,6 +492,33 @@ function handleMockResponse(url: string, init?: RequestInit): Promise<Response> 
     ]);
   }
 
+  if (url.includes('/api/v1/outreach') && method === 'POST') {
+    try {
+      const payload = init?.body ? JSON.parse(init.body as string) : {};
+      const newDraft = {
+        id: `draft-counter-${Date.now()}`,
+        job_id: payload.job_id || 'mock-job-id',
+        recruiter_id: payload.recruiter_id || 'rec-01',
+        channel: payload.channel || 'GMAIL',
+        subject: payload.subject || 'Regarding Offer Discussion',
+        body_markdown: payload.body_markdown || '',
+        status: 'AWAITING_APPROVAL',
+        recruiter_name: payload.recruiter_name || 'Talent Partner',
+        recruiter_email: payload.recruiter_email || 'talent@company.com',
+        job_title: payload.job_title || 'Staff Software Engineer',
+        company_name: payload.company_name || 'Target Enterprise',
+        approved_at: null,
+        sent_at: null,
+        external_message_id: null,
+        created_at: new Date().toISOString(),
+      };
+      MOCK_OUTREACH_DRAFTS.unshift(newDraft as any);
+      return createJsonResponse(newDraft);
+    } catch {
+      // Graceful fallback
+    }
+  }
+
   if (url.includes('/api/v1/outreach') && method === 'GET') {
     return createJsonResponse(MOCK_OUTREACH_DRAFTS);
   }

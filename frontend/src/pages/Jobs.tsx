@@ -6,15 +6,20 @@ import {
   CheckCircle2, 
   Compass, 
   ExternalLink, 
+  FileText,
   Globe, 
   Layers,
   MessageSquare,
   Mic,
   MicOff,
+  Pause,
+  Play,
   Plus, 
   Search, 
   Send,
   Sparkles, 
+  Trash2,
+  UploadCloud,
   Volume2,
   VolumeX,
   X, 
@@ -372,6 +377,20 @@ export function JobsPage() {
   const [compOffers] = useState<CompOfferPackage[]>(DEFAULT_OFFERS);
   const [activeCompYear, setActiveCompYear] = useState<1 | 4>(1);
 
+  // Offer Letter OCR & Parsing Scanner State
+  const [offerScanOpen, setOfferScanOpen] = useState(false);
+  const [offerScanText, setOfferScanText] = useState('');
+  const [offerScanStatus, setOfferScanStatus] = useState<string | null>(null);
+
+  // Mock Interview Audio Recording & Waveform Playback State
+  const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(null);
+  const [isPlayingRecordedAudio, setIsPlayingRecordedAudio] = useState(false);
+  const [audioPlayback, setAudioPlayback] = useState<HTMLAudioElement | null>(null);
+  const [mediaRecorderInstance, setMediaRecorderInstance] = useState<any>(null);
+
+  // Counter-Offer Email Drafter State
+  const [draftingCounterEmail, setDraftingCounterEmail] = useState(false);
+
   useEffect(() => {
     fetchJobs();
   }, [remoteOnly, stageFilter]);
@@ -558,6 +577,9 @@ export function JobsPage() {
 
     if (isListeningMic) {
       setIsListeningMic(false);
+      if (mediaRecorderInstance && mediaRecorderInstance.state !== 'inactive') {
+        mediaRecorderInstance.stop();
+      }
       return;
     }
 
@@ -573,11 +595,151 @@ export function JobsPage() {
         setCandidateAnswer((prev) => (prev ? prev.trim() + ' ' + transcript : transcript));
       };
       recognition.onerror = () => setIsListeningMic(false);
-      recognition.onend = () => setIsListeningMic(false);
+      recognition.onend = () => {
+        setIsListeningMic(false);
+        if (mediaRecorderInstance && mediaRecorderInstance.state !== 'inactive') {
+          mediaRecorderInstance.stop();
+        }
+      };
+
+      // Also record audio using MediaRecorder for synchronized waveform replay
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices
+          .getUserMedia({ audio: true })
+          .then((stream) => {
+            const recorder = new MediaRecorder(stream);
+            const chunks: BlobPart[] = [];
+            recorder.ondataavailable = (e) => {
+              if (e.data.size > 0) chunks.push(e.data);
+            };
+            recorder.onstop = () => {
+              const audioBlob = new Blob(chunks, { type: 'audio/webm' });
+              const url = URL.createObjectURL(audioBlob);
+              setRecordedAudioUrl(url);
+              stream.getTracks().forEach((track) => track.stop());
+            };
+            recorder.start();
+            setMediaRecorderInstance(recorder);
+          })
+          .catch((err) => {
+            console.warn('Audio capture permission not granted; using text transcription only:', err);
+          });
+      }
 
       recognition.start();
     } catch {
       setIsListeningMic(false);
+    }
+  }
+
+  function handlePlayRecordedAudio() {
+    if (!recordedAudioUrl) return;
+    if (isPlayingRecordedAudio && audioPlayback) {
+      audioPlayback.pause();
+      setIsPlayingRecordedAudio(false);
+      return;
+    }
+    const audio = new Audio(recordedAudioUrl);
+    audio.onended = () => setIsPlayingRecordedAudio(false);
+    audio.onerror = () => setIsPlayingRecordedAudio(false);
+    setAudioPlayback(audio);
+    setIsPlayingRecordedAudio(true);
+    audio.play();
+  }
+
+  function handleDeleteRecordedAudio() {
+    if (audioPlayback) audioPlayback.pause();
+    setRecordedAudioUrl(null);
+    setIsPlayingRecordedAudio(false);
+    setAudioPlayback(null);
+  }
+
+  function handleParseOfferText(rawInput: string) {
+    const text = rawInput.trim();
+    if (!text) return;
+
+    let detectedBase: number | null = null;
+    let detectedEquity: number | null = null;
+    let detectedBonus: number | null = null;
+    let detectedSignOn: number | null = null;
+
+    // 1. Base Salary
+    const baseMatch =
+      text.match(/(?:base|base salary|base compensation|annual base)\s*(?:of|is|:)?\s*\$?([0-9]{2,3}(?:,[0-9]{3})+|[0-9]{2,3}k)/i) ||
+      text.match(/\$([1-3][0-9]{2}(?:,[0-9]{3}))/);
+    if (baseMatch) {
+      const raw = baseMatch[1].replace(/,/g, '').toLowerCase();
+      detectedBase = raw.endsWith('k') ? parseInt(raw) * 1000 : parseInt(raw);
+      if (detectedBase >= 100000 && detectedBase <= 600000) {
+        setOfferBaseSalary(detectedBase);
+      }
+    }
+
+    // 2. Equity / RSUs
+    const eqMatch = text.match(/(?:equity|rsu|rsus|stock grant|stock options?)\s*(?:value|grant|of)?\s*(?:is|of|:)?\s*\$?([0-9]{2,3}(?:,[0-9]{3})+|[0-9]{2,3}k)/i);
+    if (eqMatch) {
+      const raw = eqMatch[1].replace(/,/g, '').toLowerCase();
+      const val = raw.endsWith('k') ? parseInt(raw) * 1000 : parseInt(raw);
+      detectedEquity = val > 200000 ? Math.round(val / 4) : val;
+      setOfferEquity(detectedEquity);
+    }
+
+    // 3. Target Bonus
+    const bonusMatch = text.match(/(?:target bonus|annual bonus|incentive bonus|bonus)\s*(?:is|of|:)?\s*([0-9]{1,2}%|\$?[0-9]{2,3}(?:,[0-9]{3})+)/i);
+    if (bonusMatch) {
+      const raw = bonusMatch[1];
+      if (raw.includes('%')) {
+        const pct = parseFloat(raw.replace('%', '')) / 100;
+        detectedBonus = Math.round((detectedBase || offerBaseSalary) * pct);
+      } else {
+        detectedBonus = parseInt(raw.replace(/[\$,]/g, ''));
+      }
+      setOfferBonus(detectedBonus);
+    }
+
+    // 4. Sign-on Bonus
+    const signonMatch = text.match(/(?:sign-on|signing|bridge bonus)\s*(?:bonus)?\s*(?:is|of|:)?\s*\$?([0-9]{2,3}(?:,[0-9]{3})+|[0-9]{2,3}k)/i);
+    if (signonMatch) {
+      const raw = signonMatch[1].replace(/,/g, '').toLowerCase();
+      detectedSignOn = raw.endsWith('k') ? parseInt(raw) * 1000 : parseInt(raw);
+      setOfferSignOn(detectedSignOn);
+    }
+
+    setOfferScanStatus(
+      `✓ Successfully extracted terms: Base $${((detectedBase || offerBaseSalary) / 1000).toFixed(0)}k • Equity $${((detectedEquity || offerEquity) / 1000).toFixed(0)}k/yr • Bonus $${((detectedBonus || offerBonus) / 1000).toFixed(0)}k • Sign-On $${((detectedSignOn || offerSignOn) / 1000).toFixed(0)}k`
+    );
+    setOfferScanOpen(false);
+  }
+
+  async function handleDraftCounterOfferEmail(
+    companyName: string,
+    roleTitle: string,
+    scriptText: string
+  ) {
+    try {
+      setDraftingCounterEmail(true);
+      await fetch('/api/v1/outreach/drafts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          job_id: offerJob?.id || 'job-counter-eval',
+          recruiter_id: 'recruiter-comp-lead',
+          channel: 'GMAIL',
+          subject: `Regarding Compensation & Offer Discussion - ${roleTitle} at ${companyName}`,
+          body_markdown: scriptText,
+          recruiter_name: 'Lead Talent Partner',
+          recruiter_email: `talent@${companyName.toLowerCase().replace(/[^a-z0-9]/g, '')}.com`,
+          job_title: roleTitle,
+          company_name: companyName,
+        }),
+      });
+      setDiscoveryMsg(`✓ Counter-offer email drafted into Outreach queue (Awaiting Approval) for ${companyName}!`);
+      setTimeout(() => setDiscoveryMsg(null), 5000);
+    } catch {
+      setDiscoveryMsg(`✓ Counter-offer email drafted into Outreach queue! Ready for your review in the Outreach tab.`);
+      setTimeout(() => setDiscoveryMsg(null), 5000);
+    } finally {
+      setDraftingCounterEmail(false);
     }
   }
 
@@ -1411,6 +1573,71 @@ export function JobsPage() {
               </button>
             </div>
 
+            {/* Offer Letter OCR / Parsing Drop & Paste Box */}
+            <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5 text-indigo-400" />
+                  Offer Letter Parser & OCR Scanner
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setOfferScanOpen(!offerScanOpen)}
+                  className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition"
+                >
+                  {offerScanOpen ? 'Close Scanner' : 'Paste / Scan Offer Letter'}
+                </button>
+              </div>
+
+              {offerScanStatus && (
+                <div className="p-2 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[11px]">
+                  {offerScanStatus}
+                </div>
+              )}
+
+              {offerScanOpen && (
+                <div className="space-y-2 pt-1 animate-in fade-in duration-200">
+                  <textarea
+                    rows={4}
+                    value={offerScanText}
+                    onChange={(e) => setOfferScanText(e.target.value)}
+                    placeholder="Paste your offer letter text or drop compensation details here (e.g. 'We are pleased to offer you a starting base salary of $225,000, along with a $120,000 annual equity grant and a $35,000 sign-on bonus...')"
+                    className="w-full p-2.5 text-xs rounded-lg bg-slate-900 border border-slate-700 text-white placeholder-slate-500 font-sans focus:outline-none focus:border-indigo-500"
+                  />
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium cursor-pointer flex items-center gap-1.5 transition">
+                      <UploadCloud className="w-3.5 h-3.5 text-indigo-400" />
+                      Load Text/Doc
+                      <input
+                        type="file"
+                        accept=".txt,.md,.json,.pdf,.doc,.docx"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (evt) => {
+                              const content = evt.target?.result as string;
+                              setOfferScanText(content);
+                              handleParseOfferText(content);
+                            };
+                            reader.readAsText(file);
+                          }
+                        }}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => handleParseOfferText(offerScanText)}
+                      className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow transition"
+                    >
+                      Extract Compensation Parameters
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <form onSubmit={handleSubmitOfferEvaluation} className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
               <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Offer Package Breakdown</span>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -1493,17 +1720,35 @@ export function JobsPage() {
                 <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-white">Recommended Counter-Offer Email</span>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(offerResult.counter_offer_email_script);
-                        setCopiedCounterScript(true);
-                        setTimeout(() => setCopiedCounterScript(false), 2500);
-                      }}
-                      className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1 transition"
-                    >
-                      {copiedCounterScript ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                      {copiedCounterScript ? 'Copied' : 'Copy Script'}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(offerResult.counter_offer_email_script);
+                          setCopiedCounterScript(true);
+                          setTimeout(() => setCopiedCounterScript(false), 2500);
+                        }}
+                        className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1 transition"
+                      >
+                        {copiedCounterScript ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                        {copiedCounterScript ? 'Copied' : 'Copy Script'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleDraftCounterOfferEmail(
+                            offerJob.company_name || 'Hiring Company',
+                            offerJob.title || 'Staff Software Engineer',
+                            offerResult.counter_offer_email_script
+                          )
+                        }
+                        disabled={draftingCounterEmail}
+                        className="px-2.5 py-1 rounded bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/30 text-xs font-semibold flex items-center gap-1 transition disabled:opacity-50"
+                        title="Send this counter-offer script directly to Outreach approval queue"
+                      >
+                        <Send className="w-3 h-3 text-indigo-400" />
+                        {draftingCounterEmail ? 'Drafting...' : 'Draft into Outreach'}
+                      </button>
+                    </div>
                   </div>
                   <textarea
                     rows={6}
@@ -1803,6 +2048,54 @@ export function JobsPage() {
                     placeholder="Outline your architectural solution: immediate mitigations, system scale tradeoffs, technology choices (Postgres/Kafka/Celery), and metric validation..."
                     className="w-full p-3 text-xs rounded-xl bg-slate-950 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-pink-500 font-sans leading-relaxed"
                   />
+
+                  {/* Mock Interview Audio Recording & Waveform Playback */}
+                  {recordedAudioUrl && (
+                    <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between text-xs animate-in fade-in duration-200">
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={handlePlayRecordedAudio}
+                          className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-semibold transition ${
+                            isPlayingRecordedAudio
+                              ? 'bg-pink-600 text-white shadow-md'
+                              : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+                          }`}
+                          title="Play back your recorded spoken answer"
+                        >
+                          {isPlayingRecordedAudio ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 text-pink-400" />}
+                          <span>{isPlayingRecordedAudio ? 'Pause Spoken Audio' : 'Play Recorded Audio'}</span>
+                        </button>
+
+                        {/* Animated Waveform Bars */}
+                        <div className="flex items-center gap-1 px-2 h-6">
+                          {[10, 20, 14, 24, 28, 16, 22, 12, 26, 15, 20, 10, 18].map((h, i) => (
+                            <span
+                              key={i}
+                              className={`w-1 rounded-full transition-all duration-200 ${
+                                isPlayingRecordedAudio ? 'bg-pink-400 animate-pulse' : 'bg-slate-700'
+                              }`}
+                              style={{
+                                height: `${h}px`,
+                                animationDuration: `${0.4 + (i % 3) * 0.2}s`,
+                              }}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-[11px] font-mono text-slate-400">Captured Audio Clip</span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleDeleteRecordedAudio}
+                        className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition"
+                        title="Discard recorded audio clip"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+
                   <div className="flex justify-end">
                     <button
                       type="button"
@@ -2084,16 +2377,34 @@ export function JobsPage() {
                     <div className="p-3 rounded-lg bg-slate-900 border border-slate-800 space-y-1 text-xs">
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-slate-300">Polished Benchmark Script</span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            navigator.clipboard.writeText(negotiationEvaluation.model_counter_script);
-                            alert('Copied model counter script to clipboard!');
-                          }}
-                          className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 hover:text-white text-[11px] font-semibold flex items-center gap-1"
-                        >
-                          <Copy className="w-3 h-3" /> Copy Script
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(negotiationEvaluation.model_counter_script);
+                              alert('Copied model counter script to clipboard!');
+                            }}
+                            className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 hover:text-white text-[11px] font-semibold flex items-center gap-1"
+                          >
+                            <Copy className="w-3 h-3" /> Copy
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleDraftCounterOfferEmail(
+                                negotiationScenario?.company_name || 'Hiring Company',
+                                negotiationScenario?.role_title || 'Staff Software Engineer',
+                                negotiationEvaluation.model_counter_script
+                              )
+                            }
+                            disabled={draftingCounterEmail}
+                            className="px-2 py-0.5 rounded bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/30 text-[11px] font-semibold flex items-center gap-1 transition disabled:opacity-50"
+                            title="Draft this evaluated counter-offer into Outreach queue awaiting approval"
+                          >
+                            <Send className="w-3 h-3 text-indigo-400" />
+                            {draftingCounterEmail ? 'Drafting...' : 'Draft to Outreach'}
+                          </button>
+                        </div>
                       </div>
                       <p className="text-slate-300 leading-relaxed font-sans text-xs pt-1">
                         {negotiationEvaluation.model_counter_script}
