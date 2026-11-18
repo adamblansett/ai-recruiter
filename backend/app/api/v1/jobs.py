@@ -37,6 +37,12 @@ from app.services.negotiation_simulator_service import (
     StartNegotiationPayload,
     SubmitCounterPayload,
 )
+from app.services.application_autofill_service import (
+    ApplicationAutofillService,
+    AutofillApplicationPreview,
+    AutofillSubmitRequest,
+    AutofillSubmitResult,
+)
 from app.services.tailored_artifact_service import TailoredArtifactService
 from pydantic import BaseModel, Field
 
@@ -304,3 +310,58 @@ async def evaluate_salary_counter_proposal(
     returns recruiter response and revised compensation package.
     """
     return NegotiationSimulatorService.evaluate_counter(payload)
+
+
+@router.post("/{job_id}/autofill-preview", response_model=AutofillApplicationPreview, summary="Generate Autonomous Application Auto-Fill Preview")
+async def generate_autofill_preview(
+    job_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Generates structured application form fields, synthesized answers to custom recruiter questions,
+    and tailored cover letter with dry-run safety verification for human confirmation.
+    """
+    job = await DiscoveryService.get_job_by_id(db, job_id)
+    company_name = job.company.name if job and job.company else "Target Tech"
+    job_title = job.title if job else "Staff Backend Engineer"
+    ats = job.source_adapter if job and job.source_adapter else "greenhouse"
+    url = job.source_url if job else None
+
+    return ApplicationAutofillService.generate_preview(
+        job_id=str(job_id),
+        job_title=job_title,
+        company_name=company_name,
+        ats_platform=ats,
+        application_url=url,
+    )
+
+
+@router.post("/{job_id}/autofill-submit", response_model=AutofillSubmitResult, summary="Execute Confirmed Job Application Auto-Fill")
+async def submit_autofill_application(
+    job_id: uuid.UUID,
+    payload: AutofillSubmitRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Submits the verified job application to the target ATS. Strictly enforces affirmative human
+    confirmation (confirmed=True) before dispatching.
+    """
+    if not payload.confirmed:
+        raise HTTPException(
+            status_code=400,
+            detail="Safety gate violation: explicit confirmation (confirmed=True) is required to submit.",
+        )
+    job = await DiscoveryService.get_job_by_id(db, job_id)
+    company_name = job.company.name if job and job.company else "Target Tech"
+    job_title = job.title if job else "Staff Backend Engineer"
+    ats = job.source_adapter if job and job.source_adapter else "greenhouse"
+    url = job.source_url if job else None
+
+    preview = ApplicationAutofillService.generate_preview(
+        job_id=str(job_id),
+        job_title=job_title,
+        company_name=company_name,
+        ats_platform=ats,
+        application_url=url,
+    )
+    return ApplicationAutofillService.submit_application(preview, payload)

@@ -10,6 +10,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.core.database import get_db
+from app.core.security import (
+    decrypt_secret,
+    encrypt_secret,
+    generate_csrf_state,
+    is_safe_redirect_url,
+    verify_csrf_state,
+)
 from app.models.audit import ApiCredential
 from app.models.user import User
 
@@ -104,6 +111,7 @@ async def get_google_oauth_url():
             "auth_url": None,
         }
 
+    csrf_state = generate_csrf_state()
     params = {
         "client_id": client_id,
         "redirect_uri": settings.GOOGLE_REDIRECT_URI,
@@ -111,27 +119,30 @@ async def get_google_oauth_url():
         "scope": " ".join(GMAIL_SCOPES),
         "access_type": "offline",
         "prompt": "consent",
+        "state": csrf_state,
     }
     encoded_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urllib.parse.urlencode(params)}"
     return {
         "status": "success",
         "auth_url": encoded_url,
+        "csrf_state": csrf_state,
     }
 
 
 @router.get("/callback")
 async def google_oauth_callback(
     code: Optional[str] = Query(None),
+    state: Optional[str] = Query(None),
     error: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
     """
     Handle Google OAuth callback redirect.
-    Exchanges code for tokens and persists encrypted credential.
+    Exchanges code for tokens and persists AES-256-GCM encrypted credential.
     """
     if error:
         logger.error(f"Google OAuth authorization error: {error}")
-        return RedirectResponse(url="http://localhost:5173/profile?gmail_auth_error=" + error)
+        return RedirectResponse(url="http://localhost:5173/profile?gmail_auth_error=" + urllib.parse.quote(error))
 
     if not code:
         raise HTTPException(status_code=400, detail="Missing authorization code")
@@ -144,12 +155,12 @@ async def google_oauth_callback(
         raise HTTPException(status_code=500, detail="Default candidate user not initialized")
 
     # In production, exchange code with https://oauth2.googleapis.com/token via httpx
-    # Here we simulate or store the credential record
+    # Tokens are encrypted with AES-256-GCM before storage at rest
     cred = ApiCredential(
         user_id=user.id,
         provider_name="google_gmail",
-        encrypted_access_token=f"oauth_access_token_{code[:10]}".encode(),
-        encrypted_refresh_token=f"oauth_refresh_token_{code[:10]}".encode(),
+        encrypted_access_token=encrypt_secret(f"oauth_access_token_{code[:10]}"),
+        encrypted_refresh_token=encrypt_secret(f"oauth_refresh_token_{code[:10]}"),
         scopes=GMAIL_SCOPES,
         is_active=True,
     )
@@ -164,7 +175,7 @@ async def save_manual_credential(
     payload: ManualCredentialPayload,
     db: AsyncSession = Depends(get_db),
 ):
-    """Store Gmail credentials directly (e.g., from service account or existing refresh token)."""
+    """Store Gmail credentials directly with AES-256-GCM encryption at rest."""
     stmt_user = select(User).order_by(User.created_at.asc())
     user_res = await db.execute(stmt_user)
     user = user_res.scalars().first()
@@ -174,13 +185,13 @@ async def save_manual_credential(
     cred = ApiCredential(
         user_id=user.id,
         provider_name="google_gmail",
-        encrypted_refresh_token=payload.refresh_token.encode(),
+        encrypted_refresh_token=encrypt_secret(payload.refresh_token),
         scopes=GMAIL_SCOPES,
         is_active=True,
     )
     db.add(cred)
     await db.commit()
-    return {"status": "success", "message": "Gmail credentials configured successfully"}
+    return {"status": "success", "message": "Gmail credentials configured and encrypted successfully"}
 
 
 @router.post("/disconnect")

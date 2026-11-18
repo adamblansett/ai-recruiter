@@ -55,14 +55,39 @@ class Settings(BaseSettings):
     GOOGLE_REDIRECT_URI: str = "http://localhost:8000/api/v1/auth/google/callback"
     GOOGLE_REFRESH_TOKEN: Optional[str] = None
 
+    # Security Configuration
+    SECURITY_HEADERS_ENABLED: bool = True
+    MAX_REQUEST_BODY_BYTES: int = 5 * 1024 * 1024  # 5 MB
+    STRICT_TRANSPORT_SECURITY: bool = False  # Enabled in HTTPS / production
+
+    @field_validator("SECRET_KEY")
+    @classmethod
+    def validate_secret_key(cls, v: str) -> str:
+        env = os.getenv("APP_ENV", "development").lower()
+        if env == "production":
+            if "insecure" in v.lower() or len(v) < 32:
+                raise ValueError(
+                    "CRITICAL SECURITY CONFIGURATION ERROR: "
+                    "SECRET_KEY must be a cryptographically secure secret (>= 32 chars) in production."
+                )
+        return v
+
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
         if isinstance(v, str) and not v.startswith("["):
-            return [i.strip() for i in v.split(",")]
+            origins = [i.strip() for i in v.split(",")]
         elif isinstance(v, list):
-            return v
-        return ["*"]
+            origins = v
+        else:
+            origins = ["http://localhost:5173", "http://localhost:3000"]
+
+        env = os.getenv("APP_ENV", "development").lower()
+        if env == "production" and "*" in origins:
+            raise ValueError(
+                "CRITICAL SECURITY VIOLATION: Wildcard '*' CORS origin is strictly forbidden in production."
+            )
+        return origins
 
 
 settings = Settings()

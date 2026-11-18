@@ -37,7 +37,14 @@ import {
   BarChart2,
   DollarSign,
   Copy,
-  Check 
+  Check,
+  Presentation,
+  ShieldCheck,
+  FileCheck,
+  ChevronLeft,
+  ChevronRight,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 
 interface JobOpportunity {
@@ -411,6 +418,85 @@ export function JobsPage() {
   // Company Engineering Stack Graph State
   const [stackGraphModalOpen, setStackGraphModalOpen] = useState(false);
   const [selectedStackCompany, setSelectedStackCompany] = useState<'all' | 'Anthropic' | 'Datadog' | 'Stripe' | 'Figma' | 'Scale AI' | 'Cloudflare'>('all');
+
+  // Interactive Architecture System Design Whiteboard State
+  const [whiteboardModalOpen, setWhiteboardModalOpen] = useState(false);
+  const [activeWhiteboardTemplate, setActiveWhiteboardTemplate] = useState<
+    'ingestion_stream' | 'task_queue' | 'multi_region' | 'agentic_ai'
+  >('ingestion_stream');
+  const [selectedWhiteboardNode, setSelectedWhiteboardNode] = useState<string | null>('kafka');
+  const [whiteboardCopied, setWhiteboardCopied] = useState(false);
+
+  // Autonomous Application Auto-Filler State
+  const [autofillModalOpen, setAutofillModalOpen] = useState(false);
+  const [activeAutofillJob, setActiveAutofillJob] = useState<JobOpportunity | null>(null);
+  const [autofillLoading, setAutofillLoading] = useState(false);
+  const [autofillPreview, setAutofillPreview] = useState<any>(null);
+  const [autofillConfirmed, setAutofillConfirmed] = useState(false);
+  const [autofillSubmitting, setAutofillSubmitting] = useState(false);
+  const [autofillResult, setAutofillResult] = useState<any>(null);
+  const [autofillCustomAnswers, setAutofillCustomAnswers] = useState<Record<string, string>>({});
+
+  // Executive Pitch Deck State
+  const [pitchDeckModalOpen, setPitchDeckModalOpen] = useState(false);
+  const [currentPitchSlide, setCurrentPitchSlide] = useState(0);
+  const [pitchDeckFullscreen, setPitchDeckFullscreen] = useState(false);
+  const [pitchDeckCopied, setPitchDeckCopied] = useState(false);
+
+  const handleOpenAutofill = async (job: JobOpportunity) => {
+    setActiveAutofillJob(job);
+    setAutofillModalOpen(true);
+    setAutofillLoading(true);
+    setAutofillPreview(null);
+    setAutofillResult(null);
+    setAutofillConfirmed(false);
+    try {
+      const res = await fetch(`/api/v1/jobs/${job.id}/autofill-preview`, {
+        method: 'POST',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAutofillPreview(data);
+        const answers: Record<string, string> = {};
+        if (data.fields) {
+          data.fields.forEach((f: any) => {
+            if (f.is_custom_question) {
+              answers[f.field_id] = f.value;
+            }
+          });
+        }
+        setAutofillCustomAnswers(answers);
+      }
+    } catch (e) {
+      console.error('Failed to load autofill preview:', e);
+    } finally {
+      setAutofillLoading(false);
+    }
+  };
+
+  const handleSubmitAutofill = async () => {
+    if (!activeAutofillJob || !autofillPreview || !autofillConfirmed) return;
+    setAutofillSubmitting(true);
+    try {
+      const res = await fetch(`/api/v1/jobs/${activeAutofillJob.id}/autofill-submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          application_id: autofillPreview.application_id,
+          confirmed: true,
+          custom_field_overrides: autofillCustomAnswers,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAutofillResult(data);
+      }
+    } catch (e) {
+      console.error('Failed to submit application:', e);
+    } finally {
+      setAutofillSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     let interval: any = null;
@@ -1032,13 +1118,27 @@ export function JobsPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5 flex-wrap">
           <button
             onClick={() => setStackGraphModalOpen(true)}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold transition"
             title="Visual engineering architecture stack alignment graph"
           >
             <Network className="w-4 h-4 text-emerald-400" /> Tech Stack Graph
+          </button>
+          <button
+            onClick={() => setWhiteboardModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 text-xs font-semibold transition"
+            title="Interactive distributed architecture system design canvas"
+          >
+            <Layers className="w-4 h-4 text-cyan-400" /> System Design Canvas
+          </button>
+          <button
+            onClick={() => setPitchDeckModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 text-xs font-semibold transition"
+            title="Executive pitch deck presentation for VP & CTO final rounds"
+          >
+            <Presentation className="w-4 h-4 text-amber-400" /> Executive Pitch Deck
           </button>
           <button
             onClick={() => setCompareModalOpen(true)}
@@ -1211,6 +1311,13 @@ export function JobsPage() {
                       title="Evaluate Total Comp & Draft Counter-Offer Script"
                     >
                       <DollarSign className="w-3.5 h-3.5" /> Offer
+                    </button>
+                    <button
+                      onClick={() => handleOpenAutofill(job)}
+                      className="px-2.5 py-1 rounded-lg bg-teal-600/20 hover:bg-teal-600/30 text-teal-300 border border-teal-500/30 text-xs font-semibold flex items-center gap-1 transition"
+                      title="Autonomous Application Auto-Filler (Greenhouse / Lever) with confirmation guard"
+                    >
+                      <FileCheck className="w-3.5 h-3.5" /> Auto-Fill
                     </button>
                     <button
                       onClick={() => handleDownloadTailoredResume(job.id)}
@@ -2124,6 +2231,15 @@ export function JobsPage() {
                   <div className="flex items-center justify-between text-xs">
                     <label className="font-bold text-slate-300">Your Response (Candidate Answer)</label>
                     <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setWhiteboardModalOpen(true)}
+                        className="px-2.5 py-1 rounded-lg bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 text-xs font-semibold flex items-center gap-1 transition"
+                        title="Open Interactive System Design Whiteboard to sketch distributed architectures"
+                      >
+                        <Layers className="w-3.5 h-3.5 text-cyan-400" /> Whiteboard
+                      </button>
+
                       <button
                         type="button"
                         onClick={handleToggleWebcam}
@@ -3041,6 +3157,1004 @@ export function JobsPage() {
               <div>
                 <strong className="text-white font-semibold">Strategic Interview Positioning:</strong> Adam's combination of deep asynchronous Python/FastAPI microservices and zero-trust authentication allows immediate senior-level contributions without onboarding lag. Use the 10+ year track record in zero-downtime database migrations as a key differentiator during system design panels.
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 1. Interactive Architecture System Design Whiteboard Modal */}
+      {whiteboardModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-cyan-500/30 rounded-2xl max-w-6xl w-full max-h-[94vh] overflow-y-auto p-6 space-y-6 shadow-2xl">
+            {/* Header */}
+            <div className="flex items-start justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center space-x-3">
+                <div className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                  <Layers className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    Interactive Architecture System Design Whiteboard
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Staff/Principal-level distributed architecture topologies tailored to Adam Blansett’s 10+ years backend expertise
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    const blueprint = JSON.stringify(
+                      {
+                        template: activeWhiteboardTemplate,
+                        candidate: 'Adam Blansett',
+                        role: 'Staff / Principal Backend Architect',
+                        timestamp: new Date().toISOString(),
+                      },
+                      null,
+                      2
+                    );
+                    navigator.clipboard.writeText(blueprint);
+                    setWhiteboardCopied(true);
+                    setTimeout(() => setWhiteboardCopied(false), 2000);
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition border border-slate-700"
+                >
+                  {whiteboardCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  {whiteboardCopied ? 'Copied Blueprint' : 'Copy Blueprint'}
+                </button>
+                <button
+                  onClick={() => setWhiteboardModalOpen(false)}
+                  className="text-slate-500 hover:text-white transition p-1"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Template Selector Bar */}
+            <div className="flex items-center gap-2 border-b border-slate-800 pb-3 flex-wrap text-xs">
+              <span className="font-semibold text-slate-400">Architecture Template:</span>
+              <button
+                onClick={() => {
+                  setActiveWhiteboardTemplate('ingestion_stream');
+                  setSelectedWhiteboardNode('kafka');
+                }}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition ${
+                  activeWhiteboardTemplate === 'ingestion_stream'
+                    ? 'bg-cyan-600 text-white shadow-md'
+                    : 'bg-slate-800 text-slate-400 hover:text-white'
+                }`}
+              >
+                ⚡ 150k/s Event Ingestion & DLQ
+              </button>
+              <button
+                onClick={() => {
+                  setActiveWhiteboardTemplate('task_queue');
+                  setSelectedWhiteboardNode('celery');
+                }}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition ${
+                  activeWhiteboardTemplate === 'task_queue'
+                    ? 'bg-cyan-600 text-white shadow-md'
+                    : 'bg-slate-800 text-slate-400 hover:text-white'
+                }`}
+              >
+                🔄 Distributed Task Queue & Celery
+              </button>
+              <button
+                onClick={() => {
+                  setActiveWhiteboardTemplate('multi_region');
+                  setSelectedWhiteboardNode('cdc');
+                }}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition ${
+                  activeWhiteboardTemplate === 'multi_region'
+                    ? 'bg-cyan-600 text-white shadow-md'
+                    : 'bg-slate-800 text-slate-400 hover:text-white'
+                }`}
+              >
+                🌐 Multi-Region Active-Active & CDC
+              </button>
+              <button
+                onClick={() => {
+                  setActiveWhiteboardTemplate('agentic_ai');
+                  setSelectedWhiteboardNode('llm');
+                }}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition ${
+                  activeWhiteboardTemplate === 'agentic_ai'
+                    ? 'bg-cyan-600 text-white shadow-md'
+                    : 'bg-slate-800 text-slate-400 hover:text-white'
+                }`}
+              >
+                🤖 Local Agentic AI & Guardrails
+              </button>
+            </div>
+
+            {/* Canvas Subtitle */}
+            <div className="flex items-center justify-between text-xs px-2 text-slate-400">
+              <span>
+                {activeWhiteboardTemplate === 'ingestion_stream' && 'Architecture: Edge Ingress -> Cloudflare WAF -> Kafka Topic (3x ISR) -> Worker Pods -> PostgreSQL 16 & S3 Dead-Letter'}
+                {activeWhiteboardTemplate === 'task_queue' && 'Architecture: FastAPI Routes -> Redis Token Bucket Limiter -> Celery Async Pool -> Redis Cache & S3 Artifact Store'}
+                {activeWhiteboardTemplate === 'multi_region' && 'Architecture: Route 53 Geo-DNS -> Dual-Region API Pods -> Debezium CDC Stream -> Read Replicas & Invalidation Pub/Sub'}
+                {activeWhiteboardTemplate === 'agentic_ai' && 'Architecture: API Gateway -> Prompt Sanitizer -> pgvector Embedding Query -> Ollama Llama-3.2 -> Pydantic Schema Validator -> Affirmative Gate'}
+              </span>
+              <span className="text-[11px] text-cyan-400 font-mono">Click any component node to inspect technical SLA specifications</span>
+            </div>
+
+            {/* Visual Interactive SVG Topology Canvas */}
+            <div className="bg-slate-950 rounded-2xl border border-slate-800 p-6 relative overflow-x-auto min-h-[300px]">
+              <div className="min-w-[850px] relative">
+                {/* SVG Connections Layer */}
+                <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ minHeight: '260px' }}>
+                  <defs>
+                    <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                      <path d="M 0 1 L 8 5 L 0 9 z" fill="#06b6d4" />
+                    </marker>
+                    <marker id="arrow-green" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                      <path d="M 0 1 L 8 5 L 0 9 z" fill="#10b981" />
+                    </marker>
+                    <marker id="arrow-rose" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                      <path d="M 0 1 L 8 5 L 0 9 z" fill="#f43f5e" />
+                    </marker>
+                  </defs>
+
+                  {activeWhiteboardTemplate === 'ingestion_stream' && (
+                    <>
+                      <path d="M 135 110 L 210 110" stroke="#06b6d4" strokeWidth="2" strokeDasharray="4,4" markerEnd="url(#arrow)" />
+                      <text x="172" y="100" fill="#94a3b8" fontSize="10" textAnchor="middle" fontFamily="monospace">HTTPS/JSON</text>
+
+                      <path d="M 330 110 L 405 110" stroke="#06b6d4" strokeWidth="2" strokeDasharray="4,4" markerEnd="url(#arrow)" />
+                      <text x="367" y="100" fill="#94a3b8" fontSize="10" textAnchor="middle" fontFamily="monospace">mTLS Stream</text>
+
+                      <path d="M 525 110 L 600 110" stroke="#06b6d4" strokeWidth="2" strokeDasharray="4,4" markerEnd="url(#arrow)" />
+                      <text x="562" y="100" fill="#94a3b8" fontSize="10" textAnchor="middle" fontFamily="monospace">Batch Pull</text>
+
+                      <path d="M 720 95 L 795 65" stroke="#10b981" strokeWidth="2" markerEnd="url(#arrow-green)" />
+                      <text x="758" y="70" fill="#10b981" fontSize="10" textAnchor="middle" fontFamily="monospace">UPSERT (ACID)</text>
+
+                      <path d="M 720 125 L 795 155" stroke="#f43f5e" strokeWidth="2" strokeDasharray="3,3" markerEnd="url(#arrow-rose)" />
+                      <text x="758" y="150" fill="#f43f5e" fontSize="10" textAnchor="middle" fontFamily="monospace">Dead-Letter</text>
+                    </>
+                  )}
+
+                  {activeWhiteboardTemplate === 'task_queue' && (
+                    <>
+                      <path d="M 135 110 L 210 110" stroke="#06b6d4" strokeWidth="2" strokeDasharray="4,4" markerEnd="url(#arrow)" />
+                      <path d="M 330 110 L 405 110" stroke="#06b6d4" strokeWidth="2" strokeDasharray="4,4" markerEnd="url(#arrow)" />
+                      <path d="M 525 110 L 600 110" stroke="#06b6d4" strokeWidth="2" strokeDasharray="4,4" markerEnd="url(#arrow)" />
+                      <path d="M 720 95 L 795 65" stroke="#10b981" strokeWidth="2" markerEnd="url(#arrow-green)" />
+                      <path d="M 720 125 L 795 155" stroke="#06b6d4" strokeWidth="2" markerEnd="url(#arrow)" />
+                    </>
+                  )}
+
+                  {activeWhiteboardTemplate === 'multi_region' && (
+                    <>
+                      <path d="M 135 95 L 230 65" stroke="#06b6d4" strokeWidth="2" markerEnd="url(#arrow)" />
+                      <path d="M 135 125 L 230 155" stroke="#06b6d4" strokeWidth="2" markerEnd="url(#arrow)" />
+                      <path d="M 350 65 L 470 100" stroke="#10b981" strokeWidth="2" strokeDasharray="4,4" markerEnd="url(#arrow-green)" />
+                      <path d="M 350 155 L 470 120" stroke="#06b6d4" strokeWidth="2" strokeDasharray="4,4" markerEnd="url(#arrow)" />
+                      <path d="M 590 110 L 720 110" stroke="#a855f7" strokeWidth="2" markerEnd="url(#arrow)" />
+                    </>
+                  )}
+
+                  {activeWhiteboardTemplate === 'agentic_ai' && (
+                    <>
+                      <path d="M 135 110 L 210 110" stroke="#06b6d4" strokeWidth="2" markerEnd="url(#arrow)" />
+                      <path d="M 330 95 L 420 65" stroke="#06b6d4" strokeWidth="2" markerEnd="url(#arrow)" />
+                      <path d="M 330 125 L 420 155" stroke="#10b981" strokeWidth="2" markerEnd="url(#arrow-green)" />
+                      <path d="M 540 155 L 620 110" stroke="#a855f7" strokeWidth="2" markerEnd="url(#arrow)" />
+                      <path d="M 740 110 L 800 110" stroke="#f43f5e" strokeWidth="2" markerEnd="url(#arrow-rose)" />
+                    </>
+                  )}
+                </svg>
+
+                {/* Interactive Node Boxes */}
+                <div className="flex items-center justify-between gap-4 py-8 relative z-10">
+                  {activeWhiteboardTemplate === 'ingestion_stream' && (
+                    <>
+                      <button
+                        onClick={() => setSelectedWhiteboardNode('client')}
+                        className={`p-3.5 rounded-xl border text-left transition w-32 ${
+                          selectedWhiteboardNode === 'client'
+                            ? 'bg-indigo-600/30 border-indigo-400 ring-2 ring-indigo-500/50'
+                            : 'bg-slate-900/90 border-slate-800 hover:border-slate-700'
+                        }`}
+                      >
+                        <div className="text-[10px] text-indigo-400 uppercase font-mono font-bold">Source</div>
+                        <div className="text-xs font-bold text-white mt-0.5">Ingest Clients</div>
+                        <div className="text-[10px] text-slate-400 font-mono mt-1">150k req/sec</div>
+                      </button>
+
+                      <button
+                        onClick={() => setSelectedWhiteboardNode('edge')}
+                        className={`p-3.5 rounded-xl border text-left transition w-32 ${
+                          selectedWhiteboardNode === 'edge'
+                            ? 'bg-cyan-600/30 border-cyan-400 ring-2 ring-cyan-500/50'
+                            : 'bg-slate-900/90 border-slate-800 hover:border-slate-700'
+                        }`}
+                      >
+                        <div className="text-[10px] text-cyan-400 uppercase font-mono font-bold">Edge WAF</div>
+                        <div className="text-xs font-bold text-white mt-0.5">Cloudflare API</div>
+                        <div className="text-[10px] text-slate-400 font-mono mt-1">&lt;15ms P99</div>
+                      </button>
+
+                      <button
+                        onClick={() => setSelectedWhiteboardNode('kafka')}
+                        className={`p-3.5 rounded-xl border text-left transition w-32 ${
+                          selectedWhiteboardNode === 'kafka'
+                            ? 'bg-violet-600/30 border-violet-400 ring-2 ring-violet-500/50'
+                            : 'bg-slate-900/90 border-slate-800 hover:border-slate-700'
+                        }`}
+                      >
+                        <div className="text-[10px] text-violet-400 uppercase font-mono font-bold">Broker</div>
+                        <div className="text-xs font-bold text-white mt-0.5">Kafka Topic</div>
+                        <div className="text-[10px] text-slate-400 font-mono mt-1">3x Replicated</div>
+                      </button>
+
+                      <button
+                        onClick={() => setSelectedWhiteboardNode('worker')}
+                        className={`p-3.5 rounded-xl border text-left transition w-32 ${
+                          selectedWhiteboardNode === 'worker'
+                            ? 'bg-emerald-600/30 border-emerald-400 ring-2 ring-emerald-500/50'
+                            : 'bg-slate-900/90 border-slate-800 hover:border-slate-700'
+                        }`}
+                      >
+                        <div className="text-[10px] text-emerald-400 uppercase font-mono font-bold">Consumer</div>
+                        <div className="text-xs font-bold text-white mt-0.5">Batch Workers</div>
+                        <div className="text-[10px] text-slate-400 font-mono mt-1">64 Pods</div>
+                      </button>
+
+                      <div className="flex flex-col gap-3">
+                        <button
+                          onClick={() => setSelectedWhiteboardNode('db')}
+                          className={`p-3 rounded-xl border text-left transition w-32 ${
+                            selectedWhiteboardNode === 'db'
+                              ? 'bg-blue-600/30 border-blue-400 ring-2 ring-blue-500/50'
+                              : 'bg-slate-900/90 border-slate-800 hover:border-slate-700'
+                          }`}
+                        >
+                          <div className="text-[10px] text-blue-400 uppercase font-mono font-bold">Database</div>
+                          <div className="text-xs font-bold text-white">PostgreSQL 16</div>
+                          <div className="text-[10px] text-slate-400 font-mono">&lt;8ms P99</div>
+                        </button>
+
+                        <button
+                          onClick={() => setSelectedWhiteboardNode('dlq')}
+                          className={`p-3 rounded-xl border text-left transition w-32 ${
+                            selectedWhiteboardNode === 'dlq'
+                              ? 'bg-rose-600/30 border-rose-400 ring-2 ring-rose-500/50'
+                              : 'bg-slate-900/90 border-slate-800 hover:border-slate-700'
+                          }`}
+                        >
+                          <div className="text-[10px] text-rose-400 uppercase font-mono font-bold">Dead-Letter</div>
+                          <div className="text-xs font-bold text-white">S3 DLQ Store</div>
+                          <div className="text-[10px] text-slate-400 font-mono">Zero Loss</div>
+                        </button>
+                      </div>
+                    </>
+                  )}
+
+                  {activeWhiteboardTemplate === 'task_queue' && (
+                    <>
+                      <button
+                        onClick={() => setSelectedWhiteboardNode('client')}
+                        className="p-3.5 rounded-xl border border-slate-800 bg-slate-900/90 text-left w-32"
+                      >
+                        <div className="text-[10px] text-indigo-400 uppercase font-mono font-bold">Ingress</div>
+                        <div className="text-xs font-bold text-white">FastAPI Route</div>
+                        <div className="text-[10px] text-slate-400 font-mono">Async I/O</div>
+                      </button>
+                      <button
+                        onClick={() => setSelectedWhiteboardNode('limiter')}
+                        className="p-3.5 rounded-xl border border-slate-800 bg-slate-900/90 text-left w-32"
+                      >
+                        <div className="text-[10px] text-amber-400 uppercase font-mono font-bold">Limiter</div>
+                        <div className="text-xs font-bold text-white">Redis Bucket</div>
+                        <div className="text-[10px] text-slate-400 font-mono">&lt;1ms check</div>
+                      </button>
+                      <button
+                        onClick={() => setSelectedWhiteboardNode('celery')}
+                        className="p-3.5 rounded-xl border border-slate-800 bg-slate-900/90 text-left w-32"
+                      >
+                        <div className="text-[10px] text-violet-400 uppercase font-mono font-bold">Task Queue</div>
+                        <div className="text-xs font-bold text-white">Celery Pool</div>
+                        <div className="text-[10px] text-slate-400 font-mono">10k tasks/sec</div>
+                      </button>
+                      <button
+                        onClick={() => setSelectedWhiteboardNode('workers')}
+                        className="p-3.5 rounded-xl border border-slate-800 bg-slate-900/90 text-left w-32"
+                      >
+                        <div className="text-[10px] text-emerald-400 uppercase font-mono font-bold">Compute</div>
+                        <div className="text-xs font-bold text-white">ECS Fargate</div>
+                        <div className="text-[10px] text-slate-400 font-mono">Auto-Scaling</div>
+                      </button>
+                      <div className="flex flex-col gap-3">
+                        <button
+                          onClick={() => setSelectedWhiteboardNode('cache')}
+                          className="p-3 rounded-xl border border-slate-800 bg-slate-900/90 text-left w-32"
+                        >
+                          <div className="text-[10px] text-cyan-400 uppercase font-mono font-bold">Cache</div>
+                          <div className="text-xs font-bold text-white">Redis Cluster</div>
+                        </button>
+                        <button
+                          onClick={() => setSelectedWhiteboardNode('s3')}
+                          className="p-3 rounded-xl border border-slate-800 bg-slate-900/90 text-left w-32"
+                        >
+                          <div className="text-[10px] text-blue-400 uppercase font-mono font-bold">Storage</div>
+                          <div className="text-xs font-bold text-white">AWS S3 Artifacts</div>
+                        </button>
+                      </div>
+                    </>
+                  )}
+
+                  {activeWhiteboardTemplate === 'multi_region' && (
+                    <>
+                      <button
+                        onClick={() => setSelectedWhiteboardNode('dns')}
+                        className="p-3.5 rounded-xl border border-slate-800 bg-slate-900/90 text-left w-32"
+                      >
+                        <div className="text-[10px] text-indigo-400 uppercase font-mono font-bold">Geo-DNS</div>
+                        <div className="text-xs font-bold text-white">Route 53 Anycast</div>
+                      </button>
+                      <div className="flex flex-col gap-3">
+                        <button
+                          onClick={() => setSelectedWhiteboardNode('region1')}
+                          className="p-3 rounded-xl border border-slate-800 bg-slate-900/90 text-left w-36"
+                        >
+                          <div className="text-[10px] text-emerald-400 uppercase font-mono font-bold">Region 1</div>
+                          <div className="text-xs font-bold text-white">US-East Primary</div>
+                        </button>
+                        <button
+                          onClick={() => setSelectedWhiteboardNode('region2')}
+                          className="p-3 rounded-xl border border-slate-800 bg-slate-900/90 text-left w-36"
+                        >
+                          <div className="text-[10px] text-teal-400 uppercase font-mono font-bold">Region 2</div>
+                          <div className="text-xs font-bold text-white">US-West Standby</div>
+                        </button>
+                      </div>
+                      <button
+                        onClick={() => setSelectedWhiteboardNode('cdc')}
+                        className="p-3.5 rounded-xl border border-slate-800 bg-slate-900/90 text-left w-36"
+                      >
+                        <div className="text-[10px] text-violet-400 uppercase font-mono font-bold">Replication</div>
+                        <div className="text-xs font-bold text-white">Debezium CDC</div>
+                        <div className="text-[10px] text-slate-400 font-mono">&lt;60ms Lag</div>
+                      </button>
+                      <button
+                        onClick={() => setSelectedWhiteboardNode('cache')}
+                        className="p-3.5 rounded-xl border border-slate-800 bg-slate-900/90 text-left w-32"
+                      >
+                        <div className="text-[10px] text-cyan-400 uppercase font-mono font-bold">Pub/Sub</div>
+                        <div className="text-xs font-bold text-white">Redis Invalidate</div>
+                      </button>
+                    </>
+                  )}
+
+                  {activeWhiteboardTemplate === 'agentic_ai' && (
+                    <>
+                      <button
+                        onClick={() => setSelectedWhiteboardNode('gateway')}
+                        className="p-3.5 rounded-xl border border-slate-800 bg-slate-900/90 text-left w-32"
+                      >
+                        <div className="text-[10px] text-indigo-400 uppercase font-mono font-bold">Gateway</div>
+                        <div className="text-xs font-bold text-white">FastAPI Auth</div>
+                      </button>
+                      <button
+                        onClick={() => setSelectedWhiteboardNode('sanitizer')}
+                        className="p-3.5 rounded-xl border border-slate-800 bg-slate-900/90 text-left w-32"
+                      >
+                        <div className="text-[10px] text-amber-400 uppercase font-mono font-bold">Security</div>
+                        <div className="text-xs font-bold text-white">Prompt Filter</div>
+                      </button>
+                      <div className="flex flex-col gap-3">
+                        <button
+                          onClick={() => setSelectedWhiteboardNode('vector')}
+                          className="p-3 rounded-xl border border-slate-800 bg-slate-900/90 text-left w-36"
+                        >
+                          <div className="text-[10px] text-cyan-400 uppercase font-mono font-bold">Vector RAG</div>
+                          <div className="text-xs font-bold text-white">pgvector HNSW</div>
+                        </button>
+                        <button
+                          onClick={() => setSelectedWhiteboardNode('llm')}
+                          className="p-3 rounded-xl border border-slate-800 bg-slate-900/90 text-left w-36"
+                        >
+                          <div className="text-[10px] text-emerald-400 uppercase font-mono font-bold">Local Model</div>
+                          <div className="text-xs font-bold text-white">Llama 3.2 3B</div>
+                        </button>
+                      </div>
+                      <button
+                        onClick={() => setSelectedWhiteboardNode('validator')}
+                        className="p-3.5 rounded-xl border border-slate-800 bg-slate-900/90 text-left w-36"
+                      >
+                        <div className="text-[10px] text-violet-400 uppercase font-mono font-bold">Schema</div>
+                        <div className="text-xs font-bold text-white">Pydantic v2</div>
+                      </button>
+                      <button
+                        onClick={() => setSelectedWhiteboardNode('gate')}
+                        className="p-3.5 rounded-xl border border-slate-800 bg-slate-900/90 text-left w-32"
+                      >
+                        <div className="text-[10px] text-rose-400 uppercase font-mono font-bold">Safety Gate</div>
+                        <div className="text-xs font-bold text-white">Human Affirm</div>
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Interactive Node Technical Inspector Card */}
+            <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                <div className="flex items-center gap-2">
+                  <Cpu className="w-4 h-4 text-cyan-400" />
+                  <span className="font-bold text-white text-sm">
+                    Component Specification: {selectedWhiteboardNode?.toUpperCase() || 'KAFKA'}
+                  </span>
+                </div>
+                <span className="text-[11px] font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded">
+                  Staff Architecture SLA
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
+                  <span className="text-slate-400 block text-[10px] uppercase font-mono">Throughput & Scale Target</span>
+                  <span className="text-white font-semibold mt-0.5 block">
+                    {selectedWhiteboardNode === 'kafka' && '300 MB/sec across 24 partition shards'}
+                    {selectedWhiteboardNode === 'worker' && '64 auto-scaled pods handling 50k msgs/sec'}
+                    {selectedWhiteboardNode === 'db' && '25,000 ACID writes/sec with PgBouncer'}
+                    {selectedWhiteboardNode === 'dlq' && 'Zero data loss; automatic S3 cold tier ingestion'}
+                    {selectedWhiteboardNode === 'edge' && '200k req/sec with edge token-bucket shedding'}
+                    {selectedWhiteboardNode === 'llm' && '85 tokens/sec local inference, sub-380ms TTFT'}
+                    {!['kafka', 'worker', 'db', 'dlq', 'edge', 'llm'].includes(selectedWhiteboardNode || '') && 'Production-grade high-concurrency target'}
+                  </span>
+                </div>
+
+                <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
+                  <span className="text-slate-400 block text-[10px] uppercase font-mono">Failure Mode & Resiliency</span>
+                  <span className="text-white font-semibold mt-0.5 block">
+                    {selectedWhiteboardNode === 'kafka' && 'ISR replication factor 3 with min.insync.replicas=2'}
+                    {selectedWhiteboardNode === 'worker' && 'Dead-letter routing on schema mismatch without halting'}
+                    {selectedWhiteboardNode === 'db' && 'Automated WAL streaming failover to hot standby <12s'}
+                    {selectedWhiteboardNode === 'dlq' && 'Encrypted immutable storage with PagerDuty alerts'}
+                    {selectedWhiteboardNode === 'edge' && 'Rate limiting circuit breaker & DNS fallback'}
+                    {selectedWhiteboardNode === 'llm' && 'Deterministic local rule fallback on timeout'}
+                    {!['kafka', 'worker', 'db', 'dlq', 'edge', 'llm'].includes(selectedWhiteboardNode || '') && 'Circuit breaker & automated retry with jitter'}
+                  </span>
+                </div>
+
+                <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
+                  <span className="text-slate-400 block text-[10px] uppercase font-mono">P99 Latency SLA</span>
+                  <span className="text-cyan-400 font-mono font-bold mt-0.5 block">
+                    {selectedWhiteboardNode === 'kafka' && '< 4.5ms write latency'}
+                    {selectedWhiteboardNode === 'worker' && '< 40ms batch processing cycle'}
+                    {selectedWhiteboardNode === 'db' && '< 8ms indexed read/write P99'}
+                    {selectedWhiteboardNode === 'dlq' && 'Asynchronous replay on demand'}
+                    {selectedWhiteboardNode === 'edge' && '< 12ms edge proxy budget'}
+                    {selectedWhiteboardNode === 'llm' && '< 380ms first token response'}
+                    {!['kafka', 'worker', 'db', 'dlq', 'edge', 'llm'].includes(selectedWhiteboardNode || '') && '< 15ms target budget'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Staff Talking Point */}
+              <div className="p-3 rounded-lg bg-cyan-950/20 border border-cyan-500/20 text-xs text-cyan-300">
+                <strong className="text-white font-semibold">Adam's Staff Interview Talking Point: </strong>
+                {selectedWhiteboardNode === 'kafka' &&
+                  '"In my systems design work, I partition Kafka topics strictly by entity or tenant ID to ensure sequential integrity per customer while scaling horizontal consumer groups linearly without race conditions."'}
+                {selectedWhiteboardNode === 'db' &&
+                  '"To prevent database connection exhaustion under 100x surges, I enforce PgBouncer in transaction mode and use partitioned time-series tables, keeping indexed lookups sub-millisecond even across 400M+ rows."'}
+                {selectedWhiteboardNode === 'worker' &&
+                  '"Consumer workers must be strictly idempotent. I enforce unique idempotency keys in Redis with a 24-hour expiration window before committing transactions to the relational store."'}
+                {selectedWhiteboardNode === 'dlq' &&
+                  '"A poison-pill payload should never bring down a streaming cluster. Routing corrupted payloads to an isolated dead-letter queue with structured metadata allows surgical reprocessing while normal traffic proceeds uninterrupted."'}
+                {!['kafka', 'db', 'worker', 'dlq'].includes(selectedWhiteboardNode || '') &&
+                  '"Every component in this topology is designed with zero single points of failure, explicit timeouts, and circuit breakers to guarantee 99.99% system availability under production load."'}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. Autonomous Application Auto-Filler Modal */}
+      {autofillModalOpen && activeAutofillJob && (
+        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-teal-500/30 rounded-2xl max-w-4xl w-full max-h-[92vh] overflow-y-auto p-6 space-y-6 shadow-2xl">
+            {/* Header */}
+            <div className="flex items-start justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center space-x-3">
+                <div className="p-2.5 rounded-xl bg-teal-500/10 text-teal-400 border border-teal-500/20">
+                  <FileCheck className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-bold text-white">
+                      Autonomous Application Auto-Filler
+                    </h3>
+                    <span className="px-2 py-0.5 rounded bg-teal-500/10 border border-teal-500/20 text-teal-300 font-mono text-xs uppercase font-bold">
+                      {activeAutofillJob.source_adapter || 'Greenhouse'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    Auto-fills candidate details, resume attachment, and synthesizes answers to custom recruiter questions
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setAutofillModalOpen(false)}
+                className="text-slate-500 hover:text-white transition p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {autofillLoading ? (
+              <div className="py-12 text-center space-y-3">
+                <div className="w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto" />
+                <p className="text-sm text-slate-400">
+                  Analyzing {activeAutofillJob.source_adapter || 'Greenhouse'} application fields and synthesizing tailored answers...
+                </p>
+              </div>
+            ) : autofillResult ? (
+              /* Success Receipt Display */
+              <div className="space-y-5 animate-in fade-in duration-300">
+                <div className="p-6 rounded-2xl bg-emerald-950/20 border border-emerald-500/40 text-center space-y-3">
+                  <div className="w-12 h-12 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto text-xl font-bold">
+                    ✓
+                  </div>
+                  <h4 className="text-lg font-bold text-white">Application Successfully Submitted</h4>
+                  <p className="text-xs text-slate-300 max-w-lg mx-auto">
+                    {autofillResult.message}
+                  </p>
+                  <div className="pt-2 flex items-center justify-center gap-4 text-xs font-mono">
+                    <span className="text-slate-400">Receipt ID: <strong className="text-emerald-400">{autofillResult.confirmation_receipt_id}</strong></span>
+                    <span className="text-slate-400">Timestamp: <strong className="text-slate-200">{new Date(autofillResult.submitted_at).toLocaleTimeString()}</strong></span>
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => {
+                      setAutofillModalOpen(false);
+                      setAutofillResult(null);
+                    }}
+                    className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold shadow-lg transition"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            ) : autofillPreview ? (
+              /* Form Fields Review & Affirmative Confirmation */
+              <div className="space-y-5">
+                {/* Safety Warning Banner */}
+                <div className="p-3.5 rounded-xl bg-teal-950/30 border border-teal-500/30 flex items-start gap-2.5 text-xs text-teal-300">
+                  <ShieldCheck className="w-4 h-4 text-teal-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="text-white font-semibold">Affirmative Confirmation Guard Active:</strong> All form values have been pre-filled from Adam Blansett’s verified credentials. Review the answers below before confirming submission.
+                  </div>
+                </div>
+
+                {/* Candidate Info Grid */}
+                <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3 text-xs">
+                  <div className="font-bold text-white text-xs uppercase tracking-wider flex items-center justify-between">
+                    <span>1. Candidate Profile Data</span>
+                    <span className="text-emerald-400 font-mono text-[11px]">100% Verified Match</span>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+                    <div className="p-2 rounded bg-slate-900 border border-slate-800">
+                      <span className="text-slate-500 block text-[10px]">Full Name</span>
+                      <span className="text-white font-medium">Adam Blansett</span>
+                    </div>
+                    <div className="p-2 rounded bg-slate-900 border border-slate-800">
+                      <span className="text-slate-500 block text-[10px]">Email</span>
+                      <span className="text-white font-medium">adamblansett@gmail.com</span>
+                    </div>
+                    <div className="p-2 rounded bg-slate-900 border border-slate-800">
+                      <span className="text-slate-500 block text-[10px]">Phone</span>
+                      <span className="text-white font-medium">+1-555-019-2834</span>
+                    </div>
+                    <div className="p-2 rounded bg-slate-900 border border-slate-800">
+                      <span className="text-slate-500 block text-[10px]">Location</span>
+                      <span className="text-white font-medium">Remote (US Citizen)</span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                    <div className="p-2 rounded bg-slate-900 border border-slate-800">
+                      <span className="text-slate-500 block text-[10px]">Work Authorization</span>
+                      <span className="text-white font-medium">Authorized (No Sponsorship)</span>
+                    </div>
+                    <div className="p-2 rounded bg-slate-900 border border-slate-800">
+                      <span className="text-slate-500 block text-[10px]">Desired Base Floor</span>
+                      <span className="text-emerald-400 font-medium font-mono">$185,000+ base</span>
+                    </div>
+                    <div className="p-2 rounded bg-slate-900 border border-slate-800">
+                      <span className="text-slate-500 block text-[10px]">Resume Attached</span>
+                      <span className="text-indigo-300 font-medium">{autofillPreview.resume_filename}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Custom Synthesized Questions */}
+                <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3 text-xs">
+                  <div className="font-bold text-white text-xs uppercase tracking-wider flex items-center justify-between">
+                    <span>2. Synthesized Recruiter Questions</span>
+                    <span className="text-teal-400 font-mono text-[11px]">AI Grounded & Editable</span>
+                  </div>
+
+                  {autofillPreview.fields
+                    .filter((f: any) => f.is_custom_question)
+                    .map((field: any) => (
+                      <div key={field.field_id} className="space-y-1.5">
+                        <label className="text-slate-300 font-medium block">
+                          {field.field_label}
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={autofillCustomAnswers[field.field_id] || ''}
+                          onChange={(e) =>
+                            setAutofillCustomAnswers({
+                              ...autofillCustomAnswers,
+                              [field.field_id]: e.target.value,
+                            })
+                          }
+                          className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-teal-500"
+                        />
+                      </div>
+                    ))}
+                </div>
+
+                {/* Cover Letter Preview */}
+                {autofillPreview.cover_letter_preview && (
+                  <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2 text-xs">
+                    <span className="font-bold text-white uppercase tracking-wider block">
+                      3. Tailored Cover Letter Preview
+                    </span>
+                    <div className="p-3 bg-slate-900 rounded-lg text-slate-300 font-mono text-[11px] whitespace-pre-wrap leading-relaxed max-h-32 overflow-y-auto border border-slate-800">
+                      {autofillPreview.cover_letter_preview}
+                    </div>
+                  </div>
+                )}
+
+                {/* Affirmative Confirmation Checkbox */}
+                <div className="p-4 rounded-xl bg-slate-950 border border-teal-500/40 flex items-center justify-between gap-4">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={autofillConfirmed}
+                      onChange={(e) => setAutofillConfirmed(e.target.checked)}
+                      className="w-4 h-4 rounded text-teal-600 focus:ring-teal-500 bg-slate-900 border-slate-700"
+                    />
+                    <span className="text-xs text-white font-medium">
+                      I have reviewed all pre-filled information and explicitly confirm submitting this application to{' '}
+                      <strong>{activeAutofillJob.company_name}</strong>.
+                    </span>
+                  </label>
+
+                  <button
+                    onClick={handleSubmitAutofill}
+                    disabled={!autofillConfirmed || autofillSubmitting}
+                    className="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 disabled:opacity-40 text-white text-xs font-semibold shadow-lg shadow-teal-500/20 transition flex items-center gap-1.5 flex-shrink-0"
+                  >
+                    {autofillSubmitting ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Submitting...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-3.5 h-3.5" /> Confirm & Submit Application
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )}
+
+      {/* 3. Executive Pitch Deck Presentation Modal */}
+      {pitchDeckModalOpen && (
+        <div className={`fixed inset-0 bg-slate-950/95 backdrop-blur-md z-50 flex items-center justify-center p-4 transition-all duration-300`}>
+          <div className={`bg-slate-900 border border-amber-500/30 rounded-2xl w-full flex flex-col justify-between shadow-2xl transition-all ${
+            pitchDeckFullscreen ? 'h-full max-h-screen p-8' : 'max-w-5xl max-h-[92vh] p-6'
+          }`}>
+            {/* Presentation Header */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center space-x-3">
+                <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                  <Presentation className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    Executive Engineering Pitch Deck
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Presentation-ready dossier for VP of Engineering & CTO final rounds (Adam Blansett, 10+ Years Backend)
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    const md = `# Adam Blansett | Executive Engineering Pitch Deck\n**Role**: Staff / Principal Distributed Systems Architect\n**10+ Years Backend Mastery | $185,000+ Baseline Floor**\n\n1. 99.99% Availability at Scale\n2. 150k+ req/sec Kafka Ingestion\n3. Zero-Downtime PostgreSQL Live Partitioning\n4. 30-60-90 Day High-Impact Roadmap`;
+                    navigator.clipboard.writeText(md);
+                    setPitchDeckCopied(true);
+                    setTimeout(() => setPitchDeckCopied(false), 2000);
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition border border-slate-700"
+                >
+                  {pitchDeckCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  {pitchDeckCopied ? 'Copied Markdown' : 'Copy Markdown'}
+                </button>
+                <button
+                  onClick={() => setPitchDeckFullscreen(!pitchDeckFullscreen)}
+                  className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition"
+                  title="Toggle Fullscreen"
+                >
+                  {pitchDeckFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                </button>
+                <button
+                  onClick={() => setPitchDeckModalOpen(false)}
+                  className="text-slate-500 hover:text-white transition p-1"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Slide Body */}
+            <div className="py-6 flex-1 flex flex-col justify-between overflow-y-auto">
+              {currentPitchSlide === 0 && (
+                <div className="space-y-6 animate-in fade-in duration-200">
+                  <div className="space-y-2">
+                    <span className="px-2.5 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-xs font-semibold uppercase tracking-wider">
+                      Slide 1 / 5 • Candidate Executive Thesis
+                    </span>
+                    <h2 className="text-3xl font-extrabold text-white">Adam Blansett</h2>
+                    <h4 className="text-lg text-indigo-400 font-semibold">Staff / Principal Backend & Distributed Systems Architect</h4>
+                    <p className="text-sm text-slate-300 leading-relaxed max-w-3xl">
+                      10+ years architecting high-throughput distributed backends, resilient event-streaming architectures, and production AI infrastructure. Proven record delivering 99.99% system availability, zero-downtime database migrations servicing 15,000+ req/sec, and multi-million dollar cloud infrastructure optimizations.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="p-4 rounded-xl bg-slate-950 border border-slate-800">
+                      <div className="text-2xl font-black text-emerald-400 font-mono">10+ Years</div>
+                      <div className="text-xs text-slate-400 font-semibold mt-1">Backend & Systems Mastery</div>
+                      <p className="text-[11px] text-slate-500 mt-2">Python (FastAPI, Asyncio), PostgreSQL 16, Kafka, Redis, Docker</p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-slate-950 border border-slate-800">
+                      <div className="text-2xl font-black text-cyan-400 font-mono">99.99%</div>
+                      <div className="text-xs text-slate-400 font-semibold mt-1">Production Uptime SLA</div>
+                      <p className="text-[11px] text-slate-500 mt-2">Self-healing architectures, circuit breakers & idempotency keys</p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-slate-950 border border-slate-800">
+                      <div className="text-2xl font-black text-amber-400 font-mono">$185,000+</div>
+                      <div className="text-xs text-slate-400 font-semibold mt-1">Compensation Baseline Floor</div>
+                      <p className="text-[11px] text-slate-500 mt-2">Targeting $215k–$260k TC, 100% remote-first (US Citizen)</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {currentPitchSlide === 1 && (
+                <div className="space-y-6 animate-in fade-in duration-200">
+                  <div className="space-y-1">
+                    <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-semibold uppercase tracking-wider">
+                      Slide 2 / 5 • Engineering Impact & Scale
+                    </span>
+                    <h2 className="text-2xl font-extrabold text-white">Production Scale Pillars & Business Metrics</h2>
+                    <p className="text-xs text-slate-400">Proven business ROI delivered across high-scale distributed infrastructures.</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                    <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                      <span className="font-bold text-cyan-400 uppercase tracking-wider">1. High-Throughput Streaming & Queues</span>
+                      <ul className="space-y-1.5 text-slate-300 list-disc list-inside">
+                        <li>Engineered Kafka & Celery pipelines processing 150k+ events/sec with sub-50ms P99 latency.</li>
+                        <li>Designed automated dead-letter routing and reprocessing, eliminating manual operational interventions.</li>
+                        <li>Configured Redis Cluster caching with 99.2% hit rates, protecting databases from traffic surges.</li>
+                      </ul>
+                    </div>
+
+                    <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                      <span className="font-bold text-emerald-400 uppercase tracking-wider">2. Database Scale & ACID Integrity</span>
+                      <ul className="space-y-1.5 text-slate-300 list-disc list-inside">
+                        <li>Executed zero-downtime partitioning of 400M+ row PostgreSQL clusters during active traffic.</li>
+                        <li>Implemented PgBouncer transaction-mode pooling to eliminate backend connection starvation.</li>
+                        <li>Enforced strict idempotency keys across all transactional and billing API endpoints.</li>
+                      </ul>
+                    </div>
+
+                    <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                      <span className="font-bold text-amber-400 uppercase tracking-wider">3. Infrastructure Cost Efficiency</span>
+                      <ul className="space-y-1.5 text-slate-300 list-disc list-inside">
+                        <li>Reduced AWS ECS/RDS cloud expenditure by 38% while improving P99 latency by 45%.</li>
+                        <li>Standardized multi-stage Docker containerization and Kubernetes deployments with CI/CD gates.</li>
+                        <li>Integrated OpenTelemetry distributed tracing and Grafana dashboards for rapid incident MTTR.</li>
+                      </ul>
+                    </div>
+
+                    <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                      <span className="font-bold text-indigo-400 uppercase tracking-wider">4. Technical Leadership & Culture</span>
+                      <ul className="space-y-1.5 text-slate-300 list-disc list-inside">
+                        <li>Directly mentored 15+ senior and staff engineers in distributed systems design and RFC reviews.</li>
+                        <li>Established architectural decision records (ADRs) and concurrency safety standards.</li>
+                        <li>Championed remote-first engineering culture with high psychological safety and autonomy.</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {currentPitchSlide === 2 && (
+                <div className="space-y-6 animate-in fade-in duration-200">
+                  <div className="space-y-1">
+                    <span className="px-2.5 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs font-semibold uppercase tracking-wider">
+                      Slide 3 / 5 • Architectural Case Studies
+                    </span>
+                    <h2 className="text-2xl font-extrabold text-white">Proven Real-World Technical Execution</h2>
+                    <p className="text-xs text-slate-400">Battle-tested solutions under severe production constraints.</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                    <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                      <h4 className="font-bold text-cyan-400 text-sm">Zero-Downtime Data Migration</h4>
+                      <p className="text-slate-400 text-[11px]"><strong>Challenge:</strong> Live partition migration across 400M records without customer errors.</p>
+                      <ul className="space-y-1 text-slate-300 list-disc list-inside text-[11px]">
+                        <li>Built dual-write shadow pipeline with asynchronous validation workers in Python/FastAPI.</li>
+                        <li>Configured automated rollback thresholds and continuous drift verification.</li>
+                        <li>Cutover executed in 0 seconds of user downtime.</li>
+                      </ul>
+                    </div>
+
+                    <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                      <h4 className="font-bold text-amber-400 text-sm">Event Ingestion Backpressure</h4>
+                      <p className="text-slate-400 text-[11px]"><strong>Challenge:</strong> Preventing cascade database failure during 100x traffic spikes.</p>
+                      <ul className="space-y-1 text-slate-300 list-disc list-inside text-[11px]">
+                        <li>Decoupled ingestion from write storage using Kafka partition topics and dynamic workers.</li>
+                        <li>Integrated token bucket rate limiters in Redis for client tier prioritization.</li>
+                        <li>Eliminated all dropped transactions during peak load events.</li>
+                      </ul>
+                    </div>
+
+                    <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                      <h4 className="font-bold text-emerald-400 text-sm">Local-First AI Pipeline</h4>
+                      <p className="text-slate-400 text-[11px]"><strong>Challenge:</strong> Autonomous resume and dossier analysis with zero third-party data egress.</p>
+                      <ul className="space-y-1 text-slate-300 list-disc list-inside text-[11px]">
+                        <li>Integrated local Ollama/Llama 3.2 3B model with structured Pydantic schema validation.</li>
+                        <li>Achieved sub-400ms inference time with 100% data isolation and zero API costs.</li>
+                        <li>Deterministic fallbacks ensure reliable operation even during system disconnects.</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {currentPitchSlide === 3 && (
+                <div className="space-y-6 animate-in fade-in duration-200">
+                  <div className="space-y-1">
+                    <span className="px-2.5 py-1 rounded-full bg-violet-500/10 border border-violet-500/30 text-violet-300 text-xs font-semibold uppercase tracking-wider">
+                      Slide 4 / 5 • Execution Plan
+                    </span>
+                    <h2 className="text-2xl font-extrabold text-white">30-60-90 Day High-Impact Onboarding Roadmap</h2>
+                    <p className="text-xs text-slate-400">Structured execution ensuring rapid time-to-value from Day 1.</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                    <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                      <div className="text-xs font-mono font-bold text-indigo-400 uppercase">Days 1 – 30</div>
+                      <h4 className="text-white font-bold text-sm">Discovery & Architectural Audit</h4>
+                      <ul className="space-y-1 text-slate-300 list-disc list-inside text-[11px]">
+                        <li>Audit backend topologies, latency bottlenecks, and telemetry pipelines.</li>
+                        <li>Analyze incident post-mortems to identify critical failure modes.</li>
+                        <li>Ship first high-leverage production bug fix or optimization within Week 2.</li>
+                      </ul>
+                    </div>
+
+                    <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                      <div className="text-xs font-mono font-bold text-emerald-400 uppercase">Days 31 – 60</div>
+                      <h4 className="text-white font-bold text-sm">Resiliency & Scalability Hardening</h4>
+                      <ul className="space-y-1 text-slate-300 list-disc list-inside text-[11px]">
+                        <li>Implement circuit breakers, connection pooling, and dead-letter queues on critical paths.</li>
+                        <li>Target 30%+ P99 latency reduction across high-volume API endpoints.</li>
+                        <li>Collaborate with product and infrastructure teams on quarterly RFC roadmaps.</li>
+                      </ul>
+                    </div>
+
+                    <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                      <div className="text-xs font-mono font-bold text-amber-400 uppercase">Days 61 – 90</div>
+                      <h4 className="text-white font-bold text-sm">Platform Acceleration & Autonomy</h4>
+                      <ul className="space-y-1 text-slate-300 list-disc list-inside text-[11px]">
+                        <li>Deliver major architectural milestone (e.g. streaming ingestion upgrade or multi-region replication).</li>
+                        <li>Establish architectural decision record (ADR) framework and lead technical design sessions.</li>
+                        <li>Multiply team throughput by unblocking peers and driving technical excellence.</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {currentPitchSlide === 4 && (
+                <div className="space-y-6 animate-in fade-in duration-200">
+                  <div className="space-y-1">
+                    <span className="px-2.5 py-1 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-semibold uppercase tracking-wider">
+                      Slide 5 / 5 • The Senior Leadership Multiplier
+                    </span>
+                    <h2 className="text-2xl font-extrabold text-white">Why Adam Blansett: Immediate Strategic Value</h2>
+                    <p className="text-xs text-slate-400">Staff-level engineering partnership that mitigates technical risk and accelerates delivery.</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                    <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+                      <h4 className="text-white font-bold text-sm">Immediate Zero-Ramp Velocity</h4>
+                      <p className="text-slate-300 leading-relaxed">
+                        10+ years of battle-tested experience across Python, distributed messaging, and databases means zero ramp-up time on architectural patterns, edge cases, and high-concurrency debugging.
+                      </p>
+                    </div>
+
+                    <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+                      <h4 className="text-white font-bold text-sm">Architectural Risk Mitigation</h4>
+                      <p className="text-slate-300 leading-relaxed">
+                        Prevent costly architectural missteps before they hit production. Proven track record in zero-downtime migrations and fault tolerance protects customer trust and uptime SLAs.
+                      </p>
+                    </div>
+
+                    <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+                      <h4 className="text-white font-bold text-sm">Force Multiplier for Senior Peers</h4>
+                      <p className="text-slate-300 leading-relaxed">
+                        Elevates team technical standards through structured design reviews, pragmatic engineering tradeoff analysis, and hands-on mentorship that accelerates the entire organization.
+                      </p>
+                    </div>
+
+                    <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+                      <h4 className="text-white font-bold text-sm">Candidate Information & Alignment</h4>
+                      <div className="text-slate-300 space-y-0.5 font-mono text-[11px]">
+                        <div>Email: <strong className="text-white">adamblansett@gmail.com</strong></div>
+                        <div>Portfolio: <strong className="text-indigo-400">adamblansett.dev</strong></div>
+                        <div>GitHub: <strong className="text-indigo-400">github.com/adamblansett</strong></div>
+                        <div>Floor: <strong className="text-emerald-400">$185k+ base (100% remote, US Citizen)</strong></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Presentation Controls Footer */}
+            <div className="border-t border-slate-800 pt-4 flex items-center justify-between">
+              <button
+                onClick={() => setCurrentPitchSlide((s) => Math.max(0, s - 1))}
+                disabled={currentPitchSlide === 0}
+                className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-white text-xs font-semibold flex items-center gap-1 transition"
+              >
+                <ChevronLeft className="w-4 h-4" /> Previous Slide
+              </button>
+
+              <div className="flex items-center gap-2">
+                {[0, 1, 2, 3, 4].map((idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setCurrentPitchSlide(idx)}
+                    className={`w-3 h-3 rounded-full transition-all ${
+                      currentPitchSlide === idx ? 'bg-amber-400 w-6' : 'bg-slate-700 hover:bg-slate-600'
+                    }`}
+                    title={`Jump to Slide ${idx + 1}`}
+                  />
+                ))}
+              </div>
+
+              <button
+                onClick={() => setCurrentPitchSlide((s) => Math.min(4, s + 1))}
+                disabled={currentPitchSlide === 4}
+                className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-white text-xs font-semibold flex items-center gap-1 transition"
+              >
+                Next Slide <ChevronRight className="w-4 h-4" />
+              </button>
             </div>
           </div>
         </div>

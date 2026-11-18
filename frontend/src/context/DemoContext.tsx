@@ -450,6 +450,89 @@ function handleMockResponse(url: string, init?: RequestInit): Promise<Response> 
     });
   }
 
+  // 7b. Application Auto-Fill Preview & Submit
+  if (url.includes('/autofill-preview')) {
+    const parts = url.split('/');
+    const jobId = parts[parts.indexOf('jobs') + 1] || 'datadog-staff-be-01';
+    const job = MOCK_JOBS.find((j) => j.id === jobId) || MOCK_JOBS[0];
+    return createJsonResponse({
+      application_id: `app-${jobId.slice(0, 8)}-${Math.random().toString(36).substring(2, 8)}`,
+      job_id: jobId,
+      job_title: job?.title || 'Staff Backend Engineer',
+      company_name: job?.company_name || 'Datadog',
+      ats_platform: (job?.source_adapter || 'greenhouse').toLowerCase(),
+      application_url: job?.source_url || 'https://boards.greenhouse.io/datadog/jobs/5912849',
+      fields: [
+        { field_id: 'first_name', field_label: 'First Name', field_type: 'text', value: 'Adam', required: true, is_custom_question: false, ai_synthesized: false },
+        { field_id: 'last_name', field_label: 'Last Name', field_type: 'text', value: 'Blansett', required: true, is_custom_question: false, ai_synthesized: false },
+        { field_id: 'email', field_label: 'Email Address', field_type: 'email', value: 'adamblansett@gmail.com', required: true, is_custom_question: false, ai_synthesized: false },
+        { field_id: 'phone', field_label: 'Phone Number', field_type: 'tel', value: '+1-555-019-2834', required: true, is_custom_question: false, ai_synthesized: false },
+        { field_id: 'location', field_label: 'Current Location', field_type: 'text', value: 'Remote (United States)', required: true, is_custom_question: false, ai_synthesized: false },
+        { field_id: 'linkedin', field_label: 'LinkedIn Profile URL', field_type: 'text', value: 'https://linkedin.com/in/adamblansett', required: true, is_custom_question: false, ai_synthesized: false },
+        { field_id: 'github', field_label: 'GitHub Profile URL', field_type: 'text', value: 'https://github.com/adamblansett', required: true, is_custom_question: false, ai_synthesized: false },
+        { field_id: 'portfolio', field_label: 'Personal Portfolio / Website', field_type: 'text', value: 'https://adamblansett.dev', required: false, is_custom_question: false, ai_synthesized: false },
+        { field_id: 'work_auth', field_label: 'Are you legally authorized to work in the United States?', field_type: 'select', value: 'Yes (US Citizen)', required: true, is_custom_question: false, ai_synthesized: false },
+        { field_id: 'visa_sponsorship', field_label: 'Will you now or in the future require employment visa sponsorship?', field_type: 'select', value: 'No', required: true, is_custom_question: false, ai_synthesized: false },
+        { field_id: 'salary_expectation', field_label: 'Desired Salary / Total Compensation', field_type: 'text', value: '$185,000+ base (targeting $215k–$260k TC)', required: true, is_custom_question: false, ai_synthesized: false },
+        {
+          field_id: 'custom_interest',
+          field_label: `Why do you want to join ${job?.company_name || 'Datadog'} as a ${job?.title || 'Staff Backend Engineer'}?`,
+          field_type: 'textarea',
+          value: `With over a decade of production backend experience scaling distributed architectures and event-driven pipelines, I am deeply impressed by ${job?.company_name || 'Datadog'}'s technical vision. The challenges in this role align squarely with my background architecting high-throughput, fault-tolerant telemetry streams and modern AI workflow infrastructure.`,
+          required: true,
+          is_custom_question: true,
+          ai_synthesized: true,
+        },
+        {
+          field_id: 'custom_distributed_systems',
+          field_label: 'Describe your experience with high-throughput distributed systems & Kafka/event queues.',
+          field_type: 'textarea',
+          value: 'Over 10+ years specializing in distributed systems, asynchronous event streaming (Kafka, Redis), relational databases (PostgreSQL, PgBouncer), and high-concurrency microservice APIs in Python/FastAPI. Proven track record delivering 99.99% system availability, zero-downtime database migrations servicing 15,000+ req/sec, and autonomous local AI pipelines.',
+          required: true,
+          is_custom_question: true,
+          ai_synthesized: true,
+        },
+      ],
+      resume_filename: 'Adam_Blansett_Staff_Backend_Resume.pdf',
+      cover_letter_preview: `Dear ${job?.company_name || 'Datadog'} Recruiting Team,\n\nI am writing to express my strong interest in the ${job?.title || 'Staff Backend Engineer'} role. With over 10 years of experience architecting distributed backend services, asynchronous streaming engines, and high-availability cloud platforms, I have consistently driven technical excellence and operational resiliency.\n\nSincerely,\nAdam Blansett\nadamblansett@gmail.com | +1-555-019-2834`,
+      safety_status: 'READY_FOR_CONFIRMATION',
+      dry_run: true,
+      submission_warning: 'CONFIRMATION REQUIRED: Review all auto-filled fields. Submission will only execute upon explicit affirmative confirmation.',
+    });
+  }
+
+  if (url.includes('/autofill-submit')) {
+    let payload: any = {};
+    try {
+      if (init?.body) payload = JSON.parse(init.body as string);
+    } catch {}
+
+    if (!payload.confirmed) {
+      return createJsonResponse(
+        { detail: 'Safety gate violation: explicit confirmation (confirmed=True) is required to submit.' },
+        400
+      );
+    }
+
+    const parts = url.split('/');
+    const jobId = parts[parts.indexOf('jobs') + 1] || 'datadog-staff-be-01';
+    const job = MOCK_JOBS.find((j) => j.id === jobId) || MOCK_JOBS[0];
+    const receipt = `REC-${(job?.source_adapter || 'GREENHOUSE').toUpperCase()}-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+
+    return createJsonResponse({
+      success: true,
+      application_id: payload.application_id || 'app-demo-123',
+      job_id: jobId,
+      company_name: job?.company_name || 'Datadog',
+      job_title: job?.title || 'Staff Backend Engineer',
+      status: 'SUBMITTED',
+      submitted_at: new Date().toISOString(),
+      confirmation_receipt_id: receipt,
+      message: `Application for '${job?.title || 'Staff Backend Engineer'}' at ${job?.company_name || 'Datadog'} successfully dispatched to ${(job?.source_adapter || 'GREENHOUSE').toUpperCase()}.`,
+      submitted_fields_count: 13,
+    });
+  }
+
   // 8. Jobs List & Discovery
   if (url.includes('/api/v1/jobs/discover')) {
     return createJsonResponse({
