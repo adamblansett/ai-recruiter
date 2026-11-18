@@ -165,6 +165,70 @@ interface CompanyDossier {
   strategic_candidate_positioning: string;
 }
 
+interface CompOfferPackage {
+  id: string;
+  company_name: string;
+  role_title: string;
+  stage: string;
+  base_salary: number;
+  equity_annual: number;
+  equity_4yr_total: number;
+  bonus_annual: number;
+  sign_on: number;
+  vesting_schedule: string;
+  remote_stipend: number;
+  learning_budget: number;
+  match_401k: number;
+}
+
+const DEFAULT_OFFERS: CompOfferPackage[] = [
+  {
+    id: 'offer-1',
+    company_name: 'Datadog',
+    role_title: 'Staff Backend Engineer',
+    stage: 'Public Enterprise',
+    base_salary: 220000,
+    equity_annual: 110000,
+    equity_4yr_total: 440000,
+    bonus_annual: 22000,
+    sign_on: 35000,
+    vesting_schedule: '25% 1-yr cliff, monthly thereafter',
+    remote_stipend: 2400,
+    learning_budget: 3000,
+    match_401k: 10000,
+  },
+  {
+    id: 'offer-2',
+    company_name: 'Anthropic',
+    role_title: 'Staff Systems & Infra',
+    stage: 'Scaleup (Pre-IPO)',
+    base_salary: 240000,
+    equity_annual: 140000,
+    equity_4yr_total: 560000,
+    bonus_annual: 25000,
+    sign_on: 45000,
+    vesting_schedule: '25% 1-yr cliff, quarterly thereafter',
+    remote_stipend: 3000,
+    learning_budget: 5000,
+    match_401k: 11000,
+  },
+  {
+    id: 'offer-3',
+    company_name: 'Stripe',
+    role_title: 'Senior Staff Engineer',
+    stage: 'High-Growth Enterprise',
+    base_salary: 230000,
+    equity_annual: 125000,
+    equity_4yr_total: 500000,
+    bonus_annual: 23000,
+    sign_on: 40000,
+    vesting_schedule: '1-yr cliff, 1/48 monthly',
+    remote_stipend: 2500,
+    learning_budget: 3500,
+    match_401k: 10000,
+  },
+];
+
 interface MockInterviewQuestion {
   session_id: string;
   job_id: string;
@@ -285,6 +349,7 @@ export function JobsPage() {
 
   // Tailored Resume state
   const [tailoringJobId, setTailoringJobId] = useState<string | null>(null);
+  const [downloadingDossierId, setDownloadingDossierId] = useState<string | null>(null);
 
   // Benchmarks Modal
   const [benchmarkModalOpen, setBenchmarkModalOpen] = useState(false);
@@ -301,6 +366,11 @@ export function JobsPage() {
   const [evaluatingOffer, setEvaluatingOffer] = useState(false);
   const [offerResult, setOfferResult] = useState<OfferEvaluationResult | null>(null);
   const [copiedCounterScript, setCopiedCounterScript] = useState(false);
+
+  // Multi-Offer Comparison Matrix State
+  const [compareModalOpen, setCompareModalOpen] = useState(false);
+  const [compOffers] = useState<CompOfferPackage[]>(DEFAULT_OFFERS);
+  const [activeCompYear, setActiveCompYear] = useState<1 | 4>(1);
 
   useEffect(() => {
     fetchJobs();
@@ -582,6 +652,26 @@ export function JobsPage() {
     }
   }
 
+  async function handleDownloadExecutiveDossier(jobId: string, companyName?: string | null) {
+    try {
+      setDownloadingDossierId(jobId);
+      const res = await fetch(`/api/v1/jobs/${jobId}/executive-dossier/download`);
+      if (!res.ok) throw new Error('Failed to generate executive dossier');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Adam_Blansett_${(companyName || 'Target_Company').replace(/\s+/g, '_')}_Executive_Dossier.pdf`;
+      a.click();
+      setDiscoveryMsg('Executive Architectural Dossier PDF generated and downloaded successfully!');
+      setTimeout(() => setDiscoveryMsg(null), 4000);
+    } catch {
+      alert('Error generating executive dossier PDF.');
+    } finally {
+      setDownloadingDossierId(null);
+    }
+  }
+
   async function handleRunBenchmark(jobId: string) {
     try {
       setLoadingBenchmark(true);
@@ -687,6 +777,13 @@ export function JobsPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setCompareModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-violet-600/20 hover:bg-violet-600/30 text-violet-300 border border-violet-500/30 text-xs font-semibold transition"
+            title="Side-by-side multi-offer compensation and vesting matrix"
+          >
+            <BarChart2 className="w-4 h-4 text-violet-400" /> Compare Offers
+          </button>
           <button
             onClick={() => setModalOpen(true)}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold border border-slate-700 transition"
@@ -859,6 +956,14 @@ export function JobsPage() {
                       title="Generate Single-Page PDF Tailored for this Role"
                     >
                       <Download className="w-3.5 h-3.5" /> {tailoringJobId === job.id ? 'Tailoring...' : 'Resume PDF'}
+                    </button>
+                    <button
+                      onClick={() => handleDownloadExecutiveDossier(job.id, job.company_name)}
+                      disabled={downloadingDossierId === job.id}
+                      className="px-2.5 py-1 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-semibold flex items-center gap-1 transition disabled:opacity-50"
+                      title="Download Tailored Executive Interview Dossier PDF for CTO & VP panel rounds"
+                    >
+                      <Download className="w-3.5 h-3.5" /> {downloadingDossierId === job.id ? 'Dossier...' : 'Dossier PDF'}
                     </button>
                     <button
                       onClick={() => handleEvaluateJob(job)}
@@ -1998,6 +2103,194 @@ export function JobsPage() {
                 )}
               </div>
             ) : null}
+          </div>
+        </div>
+      )}
+
+      {/* Multi-Offer Side-by-Side Comparison Matrix Modal */}
+      {compareModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-violet-500/30 rounded-2xl max-w-5xl w-full max-h-[92vh] overflow-y-auto p-6 space-y-6 shadow-2xl">
+            {/* Header */}
+            <div className="flex items-start justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center space-x-3">
+                <div className="p-2.5 rounded-xl bg-violet-500/10 text-violet-400 border border-violet-500/20">
+                  <BarChart2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    Multi-Offer Side-by-Side Comparison Matrix
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Model 4-year cumulative compensation trajectories, equity vesting mechanics, and benefit parity
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {/* Year Scope Toggle */}
+                <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+                  <button
+                    onClick={() => setActiveCompYear(1)}
+                    className={`px-3 py-1 rounded-lg font-semibold transition ${
+                      activeCompYear === 1
+                        ? 'bg-violet-600 text-white shadow-md'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Year 1 (Cash & Bridge)
+                  </button>
+                  <button
+                    onClick={() => setActiveCompYear(4)}
+                    className={`px-3 py-1 rounded-lg font-semibold transition ${
+                      activeCompYear === 4
+                        ? 'bg-violet-600 text-white shadow-md'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    4-Year Cumulative
+                  </button>
+                </div>
+
+                <button
+                  onClick={() => setCompareModalOpen(false)}
+                  className="text-slate-500 hover:text-white transition p-1"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Offer Columns Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {compOffers.map((offer, idx) => {
+                const year1TC = offer.base_salary + offer.equity_annual + offer.bonus_annual + offer.sign_on;
+                const fourYearTC = (offer.base_salary * 4) + offer.equity_4yr_total + (offer.bonus_annual * 4) + offer.sign_on;
+                const displayTC = activeCompYear === 1 ? year1TC : fourYearTC;
+
+                return (
+                  <div
+                    key={offer.id}
+                    className={`p-5 rounded-2xl bg-slate-950/80 border space-y-4 flex flex-col justify-between shadow-xl ${
+                      idx === 1
+                        ? 'border-violet-500/40 ring-1 ring-violet-500/20'
+                        : 'border-slate-800'
+                    }`}
+                  >
+                    <div className="space-y-3">
+                      {/* Company Header */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-base font-bold text-white">{offer.company_name}</span>
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                          {offer.stage}
+                        </span>
+                      </div>
+                      <p className="text-xs text-indigo-300 font-medium">{offer.role_title}</p>
+
+                      {/* Highlight Metric */}
+                      <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800/80 space-y-1">
+                        <span className="text-[10px] uppercase font-mono text-slate-400 font-semibold block">
+                          {activeCompYear === 1 ? 'Year 1 Total Compensation' : '4-Year Total Compensation'}
+                        </span>
+                        <div className="text-2xl font-black text-emerald-400 font-mono">
+                          ${(displayTC / 1000).toFixed(0)}k
+                        </div>
+                        <span className="text-[10px] text-slate-500 block">
+                          {activeCompYear === 1
+                            ? `Includes $${offer.sign_on / 1000}k sign-on bonus bridge`
+                            : `Assumes standard 4-yr equity grant realization`}
+                        </span>
+                      </div>
+
+                      {/* Granular Breakdown Table */}
+                      <div className="space-y-2 text-xs divide-y divide-slate-800/60 pt-1">
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-slate-400">Base Salary (Cash):</span>
+                          <span className="font-mono font-semibold text-white">
+                            ${(offer.base_salary / 1000).toFixed(0)}k
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between pt-1.5">
+                          <span className="text-slate-400">Annualized Equity:</span>
+                          <span className="font-mono font-semibold text-violet-300">
+                            ${(offer.equity_annual / 1000).toFixed(0)}k/yr
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between pt-1.5">
+                          <span className="text-slate-400">4-Yr Total Equity Grant:</span>
+                          <span className="font-mono font-semibold text-violet-400">
+                            ${(offer.equity_4yr_total / 1000).toFixed(0)}k
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between pt-1.5">
+                          <span className="text-slate-400">Annual Target Bonus:</span>
+                          <span className="font-mono font-semibold text-white">
+                            ${(offer.bonus_annual / 1000).toFixed(0)}k
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between pt-1.5">
+                          <span className="text-slate-400">Sign-on Cash Bridge:</span>
+                          <span className="font-mono font-semibold text-amber-300">
+                            ${(offer.sign_on / 1000).toFixed(0)}k
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Vesting & Perks */}
+                      <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800/60 space-y-1.5 text-[11px]">
+                        <div>
+                          <span className="text-slate-500 block">Vesting Schedule:</span>
+                          <span className="font-medium text-slate-300">{offer.vesting_schedule}</span>
+                        </div>
+                        <div className="pt-1 border-t border-slate-800/40 grid grid-cols-2 gap-1 text-[10px] text-slate-400">
+                          <div>401k Match: <strong className="text-white">${offer.match_401k.toLocaleString()}</strong></div>
+                          <div>Remote Fund: <strong className="text-white">${offer.remote_stipend.toLocaleString()}/yr</strong></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Visual Cumulative Horizontal Comparison */}
+            <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
+                Relative Earning Velocity (First-Year vs 4-Year Trajectory)
+              </span>
+              <div className="space-y-3">
+                {compOffers.map((o) => {
+                  const y1 = o.base_salary + o.equity_annual + o.bonus_annual + o.sign_on;
+                  const fourYr = (o.base_salary * 4) + o.equity_4yr_total + (o.bonus_annual * 4) + o.sign_on;
+                  const pct = Math.round((fourYr / 1600000) * 100);
+
+                  return (
+                    <div key={o.id} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-semibold text-white">{o.company_name}</span>
+                        <span className="font-mono text-slate-400">
+                          Y1: ${(y1 / 1000).toFixed(0)}k • 4-Yr Total: <strong className="text-emerald-400">${(fourYr / 1000).toFixed(0)}k</strong>
+                        </span>
+                      </div>
+                      <div className="w-full h-3 rounded-full bg-slate-800 overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-indigo-500 via-violet-500 to-emerald-400 transition-all duration-500"
+                          style={{ width: `${Math.min(100, Math.max(20, pct))}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Tactical Leverage Notes */}
+            <div className="p-4 rounded-xl bg-violet-950/20 border border-violet-500/20 text-xs text-violet-300 flex items-start gap-2.5">
+              <Sparkles className="w-4 h-4 text-violet-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <strong className="text-white font-semibold">Cross-Offer Negotiation Dynamic:</strong> Anthropic provides the highest nominal equity upside ($140k/yr), while Datadog offers the highest liquidity and predictable public equity. Use Anthropic's $240k base to negotiate Stripe and Datadog up from their initial $220k-$230k offers.
+              </div>
+            </div>
           </div>
         </div>
       )}

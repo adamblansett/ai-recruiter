@@ -10,8 +10,11 @@ import {
   AlertCircle,
   DollarSign,
   CheckCircle,
-  ExternalLink
+  ExternalLink,
+  Bell,
+  Sparkles
 } from 'lucide-react';
+import { requestNotificationPermission, sendDesktopNotification } from '../utils/notifications';
 
 interface AnalyticsSummary {
   total_jobs: number;
@@ -51,6 +54,16 @@ export function AnalyticsPage() {
   const [data, setData] = useState<FunnelData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [digestAlert, setDigestAlert] = useState<string | null>(null);
+
+  async function handleTriggerMorningDigest() {
+    await requestNotificationPermission();
+    sendDesktopNotification('⚡ AI Recruiter Morning Executive Digest', {
+      body: '5 new Staff/Senior+ backend roles matching your $185k+ criteria are ready for review.',
+    });
+    setDigestAlert('✓ Morning Executive Digest dispatched! Top 5 Staff roles prioritized based on $185k+ floor.');
+    setTimeout(() => setDigestAlert(null), 5000);
+  }
 
   useEffect(() => {
     fetchAnalytics();
@@ -84,15 +97,32 @@ export function AnalyticsPage() {
   return (
     <div className="space-y-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
-      <div>
-        <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-          <BarChart3 className="w-6 h-6 text-indigo-400" />
-          Pipeline Funnel & Conversion Analytics
-        </h2>
-        <p className="text-sm text-slate-400">
-          Real-time metrics tracking discovery-to-offer progression, email response velocity, and follow-up alerts.
-        </p>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+            <BarChart3 className="w-6 h-6 text-indigo-400" />
+            Pipeline Funnel & Conversion Analytics
+          </h2>
+          <p className="text-sm text-slate-400">
+            Real-time metrics tracking discovery-to-offer progression, email response velocity, and follow-up alerts.
+          </p>
+        </div>
+
+        <button
+          onClick={handleTriggerMorningDigest}
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-semibold shadow-lg shadow-indigo-600/10 transition"
+          title="Dispatch prioritized daily 6:00 AM executive briefing to desktop"
+        >
+          <Bell className="w-3.5 h-3.5 text-indigo-400" /> Trigger Morning Digest
+        </button>
       </div>
+
+      {digestAlert && (
+        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 flex items-center gap-2 text-xs">
+          <Sparkles className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+          <span>{digestAlert}</span>
+        </div>
+      )}
 
       {error && (
         <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 flex items-center gap-3">

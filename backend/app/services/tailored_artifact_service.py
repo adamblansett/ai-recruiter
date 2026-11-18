@@ -177,3 +177,72 @@ class TailoredArtifactService:
             "cover_letter_markdown": cover_letter_markdown,
             "cover_letter_path": cover_letter_path,
         }
+
+    @classmethod
+    async def generate_executive_dossier_pdf(
+        cls,
+        db: AsyncSession,
+        job_id: uuid.UUID,
+        out_dir: Optional[str] = None,
+    ) -> Dict:
+        """
+        Generates an Executive Architectural Interview Dossier (PDF 1.4)
+        tailored for final-round panel interviews with CTOs and VPs of Engineering.
+        """
+        stmt = select(JobOpportunity).where(JobOpportunity.id == job_id)
+        res = await db.execute(stmt)
+        job = res.scalars().first()
+        if not job:
+            raise ValueError(f"Job opportunity {job_id} not found")
+
+        company_name = job.company.name if job.company else "Target Enterprise"
+        job_title = job.title or "Staff Software Engineer"
+
+        out_dir = out_dir or settings.UPLOAD_DIR
+        os.makedirs(out_dir, exist_ok=True)
+        filename = f"Executive_Dossier_{company_name}_{uuid.uuid4().hex[:6]}.pdf"
+        dossier_filepath = os.path.join(out_dir, filename)
+
+        dossier_sections = {
+            "Executive Architectural Profile": [
+                "Staff Software Engineer with 10+ years architecting fault-tolerant, high-throughput distributed backends.",
+                "Deep specialization in asynchronous Python/FastAPI microservices, PostgreSQL query optimization, and Redis.",
+                "Proven leadership delivering zero-downtime database schema migrations and resilient event-driven architectures.",
+            ],
+            "Core Architectural Specializations": [
+                "Distributed Event Streaming & Queuing: Kafka, Celery, RabbitMQ, and durable dead-letter routing.",
+                "High-Concurrency Storage & Caching: PostgreSQL, PgBouncer, connection pool tuning, and Redis cache clusters.",
+                "Zero-Trust Application Security: OAuth 2.0, JWT, HashiCorp Vault, and multi-tenant role-based access control.",
+                "Cloud Infrastructure & Container Orchestration: Docker, Docker Compose, AWS, Terraform, and Linux internals.",
+            ],
+            "AI & LLM Orchestration Infrastructure": [
+                "Provider-neutral AI evaluation pipelines with structured schema validation and prompt isolation boundaries.",
+                "Local open-weights integration with Ollama (Llama 3.2 3B) and enterprise cloud AI gateways.",
+                "Retrieval-Augmented Generation (RAG) architecture and vector database embedding strategies.",
+            ],
+            "Technical Leadership & System Design Governance": [
+                "Author of high-impact RFC architectural specs and cross-functional engineering quality standards.",
+                "Mentorship of senior and mid-level engineers in distributed system debugging, concurrency, and p99 latency reduction.",
+                "Obsessive focus on automated integration testing, CI/CD safety rails, and ironclad operational hygiene.",
+            ],
+            f"Strategic Value Alignment for {company_name}": [
+                f"Directly accelerates {company_name}'s high-throughput backend scaling and microservice reliability roadmaps.",
+                f"Immediate impact across system design, API robustness, and developer autonomy within {job_title} scope.",
+            ],
+        }
+
+        cls._render_pdf(
+            output_path=dossier_filepath,
+            title="ADAM BLANSETT - EXECUTIVE ARCHITECTURAL DOSSIER",
+            subtitle=f"Candidate Briefing for Engineering Leadership | Target: {job_title} at {company_name}",
+            sections=dossier_sections,
+        )
+
+        return {
+            "status": "success",
+            "job_id": str(job_id),
+            "company_name": company_name,
+            "job_title": job_title,
+            "dossier_pdf_path": dossier_filepath,
+            "dossier_download_url": f"/api/v1/jobs/{job_id}/executive-dossier/download",
+        }

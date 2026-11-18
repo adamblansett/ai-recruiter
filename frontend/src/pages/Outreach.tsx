@@ -1,18 +1,35 @@
 import { useState, useEffect } from 'react';
 import { 
+  Building2,
   Calendar,
   CheckCircle, 
+  ChevronDown,
+  ChevronUp,
   Clock,
   Edit3, 
   Mail, 
   Send, 
   ShieldCheck, 
+  Sparkles,
   Trash2, 
   User,
   Copy,
   Check,
   RefreshCw 
 } from 'lucide-react';
+
+interface CompanyDossier {
+  job_id: string;
+  company_name: string;
+  domain: string | null;
+  industry: string;
+  funding_stage: string;
+  engineering_scale: string;
+  primary_tech_stack: string[];
+  engineering_blog_highlights: string[];
+  interview_process_notes: string;
+  strategic_candidate_positioning: string;
+}
 
 interface OutreachDraft {
   id: string;
@@ -62,6 +79,33 @@ export function OutreachPage() {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [syncingInbox, setSyncingInbox] = useState(false);
+
+  // Company Technical Dossier State
+  const [expandedDossierId, setExpandedDossierId] = useState<string | null>(null);
+  const [dossiers, setDossiers] = useState<Record<string, CompanyDossier>>({});
+  const [loadingDossier, setLoadingDossier] = useState(false);
+
+  async function handleToggleDossier(draftId: string, jobId: string) {
+    if (expandedDossierId === draftId) {
+      setExpandedDossierId(null);
+      return;
+    }
+    setExpandedDossierId(draftId);
+    if (!dossiers[draftId]) {
+      try {
+        setLoadingDossier(true);
+        const res = await fetch(`/api/v1/jobs/${jobId}/company-dossier`);
+        if (res.ok) {
+          const data: CompanyDossier = await res.json();
+          setDossiers((prev) => ({ ...prev, [draftId]: data }));
+        }
+      } catch (err) {
+        console.warn('Could not fetch company dossier:', err);
+      } finally {
+        setLoadingDossier(false);
+      }
+    }
+  }
 
   async function handleSyncInbox() {
     try {
@@ -458,6 +502,83 @@ export function OutreachPage() {
                 </div>
               )}
 
+              {/* Company Technical Intelligence & Dossier Panel */}
+              {expandedDossierId === draft.id && (
+                <div className="p-4 rounded-xl bg-indigo-950/20 border border-indigo-500/30 space-y-3 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between border-b border-indigo-500/20 pb-2">
+                    <span className="text-xs font-bold text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <Building2 className="w-4 h-4 text-indigo-400" />
+                      Company Technical Intelligence Dossier • {draft.company_name}
+                    </span>
+                    {loadingDossier && !dossiers[draft.id] && (
+                      <span className="text-[10px] text-indigo-300 animate-pulse">Loading technical data...</span>
+                    )}
+                  </div>
+
+                  {dossiers[draft.id] ? (
+                    <div className="space-y-3 text-xs">
+                      {/* Tech Stack Badges */}
+                      <div>
+                        <span className="text-[11px] font-semibold text-slate-400 block mb-1">
+                          Primary Verified Stack & Architecture:
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {dossiers[draft.id].primary_tech_stack.map((tech) => (
+                            <span
+                              key={tech}
+                              className="px-2 py-0.5 rounded font-mono text-[10px] font-medium bg-slate-800 text-indigo-300 border border-slate-700"
+                            >
+                              {tech}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Scale & Stage */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-slate-300 bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/60">
+                        <div>
+                          <span className="text-slate-500">Engineering Scale:</span>{' '}
+                          <span className="font-semibold text-white">{dossiers[draft.id].engineering_scale}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500">Stage:</span>{' '}
+                          <span className="font-semibold text-white">{dossiers[draft.id].funding_stage}</span>
+                        </div>
+                      </div>
+
+                      {/* Blog & Architecture Priorities */}
+                      {dossiers[draft.id].engineering_blog_highlights?.length > 0 && (
+                        <div className="space-y-1">
+                          <span className="text-[11px] font-semibold text-slate-400">
+                            Recent Engineering Milestones & Focus:
+                          </span>
+                          <ul className="space-y-1 text-slate-300 text-[11px] list-disc list-inside">
+                            {dossiers[draft.id].engineering_blog_highlights.slice(0, 2).map((h, i) => (
+                              <li key={i} className="leading-relaxed">{h}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Strategic Positioning */}
+                      {dossiers[draft.id].strategic_candidate_positioning && (
+                        <div className="p-2.5 rounded-lg bg-emerald-950/20 border border-emerald-500/20 text-emerald-300 text-[11px] flex items-start gap-2">
+                          <Sparkles className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+                          <p className="leading-relaxed">
+                            <strong className="text-white font-semibold">Strategic Pitch Angle:</strong>{' '}
+                            {dossiers[draft.id].strategic_candidate_positioning}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-slate-400 text-xs py-2">
+                      Synthesizing company engineering footprint and stack from job metadata...
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Card Footer Actions */}
               <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 flex-wrap gap-2 text-xs">
                 {draft.status === 'AWAITING_APPROVAL' ? (
@@ -472,6 +593,24 @@ export function OutreachPage() {
                         className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center gap-1.5 transition"
                       >
                         <Edit3 className="w-3.5 h-3.5" /> Edit Message
+                      </button>
+
+                      <button
+                        onClick={() => handleToggleDossier(draft.id, draft.job_id)}
+                        className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition ${
+                          expandedDossierId === draft.id
+                            ? 'bg-indigo-600/30 text-indigo-300 border border-indigo-500/40'
+                            : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                        }`}
+                        title="Inspect company technical footprint, stack, and strategic angle"
+                      >
+                        <Building2 className="w-3.5 h-3.5 text-indigo-400" />
+                        {expandedDossierId === draft.id ? 'Hide Tech Dossier' : 'Tech Dossier'}
+                        {expandedDossierId === draft.id ? (
+                          <ChevronUp className="w-3 h-3" />
+                        ) : (
+                          <ChevronDown className="w-3 h-3" />
+                        )}
                       </button>
 
                       <button

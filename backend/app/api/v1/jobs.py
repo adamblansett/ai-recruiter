@@ -223,6 +223,22 @@ async def download_tailored_resume(
     )
 
 
+@router.get("/{job_id}/executive-dossier/download", summary="Download Tailored Executive Interview Dossier PDF")
+async def download_executive_dossier(
+    job_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """Download the executive architectural briefing dossier PDF for final-round panel interviews."""
+    dossier_meta = await TailoredArtifactService.generate_executive_dossier_pdf(db, job_id)
+    pdf_path = dossier_meta["dossier_pdf_path"]
+    filename = f"Adam_Blansett_{dossier_meta['company_name']}_Executive_Dossier.pdf"
+    return FileResponse(
+        path=pdf_path,
+        media_type="application/pdf",
+        filename=filename,
+    )
+
+
 @router.get("/{job_id}/company-dossier", response_model=CompanyDossier, summary="Generate Company Technical Intelligence & Dossier")
 async def get_company_dossier(
     job_id: uuid.UUID,
