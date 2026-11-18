@@ -30,6 +30,13 @@ from app.services.interview_simulator_service import (
     StartSessionPayload,
     SubmitAnswerPayload,
 )
+from app.services.negotiation_simulator_service import (
+    NegotiationEvaluation,
+    NegotiationScenario,
+    NegotiationSimulatorService,
+    StartNegotiationPayload,
+    SubmitCounterPayload,
+)
 from app.services.tailored_artifact_service import TailoredArtifactService
 from pydantic import BaseModel, Field
 
@@ -255,3 +262,29 @@ async def evaluate_mock_interview_answer(
     and STAR structure; returns instant scorecard and follow-up drill.
     """
     return await InterviewSimulatorService.evaluate_answer(payload)
+
+
+@router.post("/{job_id}/negotiation/start", response_model=NegotiationScenario, summary="Start Interactive Salary Negotiation Simulation")
+async def start_salary_negotiation(
+    job_id: uuid.UUID,
+    payload: Optional[StartNegotiationPayload] = None,
+):
+    """
+    Initiates an interactive counter-offer negotiation simulation with a recruiter persona
+    testing pushback on salary bands, equity trade-offs, and sign-on bonuses.
+    """
+    p = payload or StartNegotiationPayload(job_id=str(job_id))
+    p.job_id = str(job_id)
+    return NegotiationSimulatorService.start_negotiation(p)
+
+
+@router.post("/{job_id}/negotiation/evaluate", response_model=NegotiationEvaluation, summary="Submit & Evaluate Salary Counter-Proposal")
+async def evaluate_salary_counter_proposal(
+    job_id: uuid.UUID,
+    payload: SubmitCounterPayload,
+):
+    """
+    Evaluates candidate's counter-offer phrasing on leverage, firmness, and total value optimization;
+    returns recruiter response and revised compensation package.
+    """
+    return NegotiationSimulatorService.evaluate_counter(payload)

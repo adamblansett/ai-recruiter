@@ -188,6 +188,77 @@ function handleMockResponse(url: string, init?: RequestInit): Promise<Response> 
     });
   }
 
+  // 3c. Interactive Salary Negotiation Simulation
+  if (url.includes('/negotiation/start')) {
+    const parts = url.split('/');
+    const jobId = parts[parts.indexOf('jobs') + 1] || 'mock-job-id';
+    return createJsonResponse({
+      session_id: 'neg-demo-882',
+      job_id: jobId,
+      company_name: 'Stripe',
+      role_title: 'Staff Backend Engineer - Core Infrastructure',
+      recruiter_persona: 'Rachel Miller, Lead Compensation Partner',
+      round_number: 1,
+      current_offer: {
+        base_salary: 195000,
+        equity_annual: 45000,
+        sign_on_bonus: 15000,
+        first_year_tc: 255000,
+      },
+      target_compensation: {
+        base_salary: 215000,
+        equity_annual: 60000,
+        sign_on_bonus: 25000,
+        first_year_tc: 300000,
+      },
+      recruiter_objection:
+        'We are thrilled to offer you the Staff Backend Engineer role! Our compensation team put together our strongest standard package: ' +
+        '$195,000 base salary, $45,000/yr equity, and a $15,000 sign-on bonus ($255,000 first year TC). ' +
+        'Our internal engineering base bands for this level have a strict ceiling around $195,000. ' +
+        'How does this align with your expectations?',
+      tactical_hints: [
+        'Acknowledge enthusiasm for the team and technical roadmap first.',
+        'Anchor firmly on total first-year comp ($300k) and experience (10+ years distributed systems).',
+        'If they claim base salary is capped, pivot to expanding equity ($60k/yr) and sign-on ($25k).',
+        'Avoid giving away leverage by stating you have no other options.',
+      ],
+    });
+  }
+
+  if (url.includes('/negotiation/evaluate')) {
+    return createJsonResponse({
+      session_id: 'neg-demo-882',
+      round_number: 1,
+      leverage_score: 95,
+      firmness_score: 94,
+      value_optimization_score: 95,
+      overall_tactical_score: 95,
+      verdict: 'HIGH_LEVERAGE_COUNTER',
+      strengths: [
+        'Masterful framing: leads with genuine team enthusiasm before anchoring counter numbers.',
+        'Reinforces high-leverage value proposition (10+ years production architecture).',
+        'Strategically gives the recruiter creative levers (equity & sign-on) to bypass rigid base ceilings.',
+      ],
+      tactical_critique: [
+        'Could offer an explicit signing commitment condition (e.g. "If we can align on this, I am prepared to sign immediately").',
+      ],
+      model_counter_script:
+        'Thank you so much for putting this together. I am genuinely excited about the team’s distributed infrastructure roadmap. ' +
+        'Looking at the scope of the role and my 10+ years designing high-throughput backend systems, I am targeting $215,000 base and $60,000 annual equity. ' +
+        'If base salary is strictly capped at $200,000, I would be happy to sign immediately if we bridge the difference with a $25,000 sign-on bonus and expanded equity grant.',
+      recruiter_counter_response:
+        'I appreciate your candor and clear enthusiasm for our roadmap. Given your decade of backend scale experience, ' +
+        'I took this to our VP of Engineering and Compensation Committee. While we can only bump base to $205,000 to maintain team equity, ' +
+        'they approved increasing your equity to $60,000/yr and approved a $25,000 sign-on bonus! This brings your first-year total comp to $290,000.',
+      revised_offer: {
+        base_salary: 205000,
+        equity_annual: 60000,
+        sign_on_bonus: 25000,
+        first_year_tc: 290000,
+      },
+    });
+  }
+
   // 4. Interview Prep
   if (url.includes('/interview-prep')) {
     const parts = url.split('/');

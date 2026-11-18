@@ -1,6 +1,39 @@
-// Content script to scrape job page metadata
-function extractJobMetadata() {
+// Content script to scrape job postings and LinkedIn recruiter profiles
+function extractPageMetadata() {
   const url = window.location.href;
+
+  // 1. Detect LinkedIn Recruiter Profile (linkedin.com/in/*)
+  if (url.includes("linkedin.com/in/")) {
+    let name = "";
+    let headline = "";
+    let company = "";
+
+    // Candidate / Recruiter Name
+    const h1 = document.querySelector("h1");
+    if (h1) name = h1.innerText.trim();
+
+    // Headline / Role
+    const headlineEl = document.querySelector(".text-body-medium") || 
+                       document.querySelector("[data-anonymize='headline']") ||
+                       document.querySelector(".pv-text-details__left-panel div");
+    if (headlineEl) headline = headlineEl.innerText.trim();
+
+    // Company from headline or experience
+    const companyMatch = headline.match(/(?:at|@)\s+([A-Za-z0-9\s.,&-]+)/i);
+    if (companyMatch) {
+      company = companyMatch[1].trim().split("·")[0].split("|")[0].trim();
+    }
+
+    return {
+      is_linkedin_profile: true,
+      recruiter_name: name,
+      recruiter_title: headline,
+      company: company || "Target Company",
+      url: url.split("?")[0]
+    };
+  }
+
+  // 2. Standard Job Opportunity Scraping
   let title = "";
   let company = "";
   let description = "";
@@ -43,12 +76,13 @@ function extractJobMetadata() {
   description = descEl.innerText.slice(0, 4000);
 
   return {
+    is_linkedin_profile: false,
     title,
-    company: company.charAt(0).toUpperCase() + company.slice(1),
+    company: company ? (company.charAt(0).toUpperCase() + company.slice(1)) : "Target Company",
     url,
     salary,
     description
   };
 }
 
-extractJobMetadata();
+extractPageMetadata();

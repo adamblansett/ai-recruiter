@@ -192,11 +192,54 @@ interface MockAnswerEvaluation {
   follow_up_question: string | null;
 }
 
+interface NegotiationOffer {
+  base_salary: number;
+  equity_annual: number;
+  sign_on_bonus: number;
+  first_year_tc: number;
+}
+
+interface NegotiationScenario {
+  session_id: string;
+  job_id: string;
+  company_name: string;
+  role_title: string;
+  recruiter_persona: string;
+  round_number: number;
+  current_offer: NegotiationOffer;
+  target_compensation: NegotiationOffer;
+  recruiter_objection: string;
+  tactical_hints: string[];
+}
+
+interface NegotiationEvaluation {
+  session_id: string;
+  round_number: number;
+  leverage_score: number;
+  firmness_score: number;
+  value_optimization_score: number;
+  overall_tactical_score: number;
+  verdict: string;
+  strengths: string[];
+  tactical_critique: string[];
+  model_counter_script: string;
+  recruiter_counter_response: string;
+  revised_offer: NegotiationOffer;
+}
+
 export function JobsPage() {
   const [jobs, setJobs] = useState<JobOpportunity[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [discovering, setDiscovering] = useState<boolean>(false);
   const [discoveryMsg, setDiscoveryMsg] = useState<string | null>(null);
+
+  // Salary Negotiation Simulator State
+  const [negotiationModalOpen, setNegotiationModalOpen] = useState(false);
+  const [loadingNegotiation, setLoadingNegotiation] = useState(false);
+  const [evaluatingNegotiation, setEvaluatingNegotiation] = useState(false);
+  const [negotiationScenario, setNegotiationScenario] = useState<NegotiationScenario | null>(null);
+  const [candidateCounterText, setCandidateCounterText] = useState('');
+  const [negotiationEvaluation, setNegotiationEvaluation] = useState<NegotiationEvaluation | null>(null);
 
   // Mock Interview Roleplay State
   const [roleplayModalOpen, setRoleplayModalOpen] = useState(false);
@@ -465,6 +508,57 @@ export function JobsPage() {
       recognition.start();
     } catch {
       setIsListeningMic(false);
+    }
+  }
+
+  async function handleStartNegotiation(job: JobOpportunity) {
+    try {
+      setNegotiationModalOpen(true);
+      setLoadingNegotiation(true);
+      setNegotiationEvaluation(null);
+      setCandidateCounterText('');
+      const res = await fetch(`/api/v1/jobs/${job.id}/negotiation/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          job_id: job.id,
+          company_name: job.company_name || 'Target Enterprise',
+          role_title: job.title,
+          initial_base: offerBaseSalary,
+          initial_equity: offerEquity,
+          initial_sign_on: offerSignOn,
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to start negotiation simulation');
+      const data: NegotiationScenario = await res.json();
+      setNegotiationScenario(data);
+    } catch {
+      alert('Error initializing negotiation simulation.');
+    } finally {
+      setLoadingNegotiation(false);
+    }
+  }
+
+  async function handleSubmitNegotiationCounter() {
+    if (!negotiationScenario || !candidateCounterText.trim()) return;
+    try {
+      setEvaluatingNegotiation(true);
+      const res = await fetch(`/api/v1/jobs/${negotiationScenario.job_id}/negotiation/evaluate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: negotiationScenario.session_id,
+          round_number: negotiationScenario.round_number,
+          counter_text: candidateCounterText.trim(),
+        }),
+      });
+      if (!res.ok) throw new Error('Evaluation failed');
+      const data: NegotiationEvaluation = await res.json();
+      setNegotiationEvaluation(data);
+    } catch {
+      alert('Error evaluating counter-proposal.');
+    } finally {
+      setEvaluatingNegotiation(false);
     }
   }
 
@@ -1313,6 +1407,20 @@ export function JobsPage() {
                     className="w-full p-2.5 text-xs rounded-lg bg-slate-900 border border-slate-800 text-slate-300 font-sans focus:outline-none"
                   />
                 </div>
+
+                {/* Launch Live Negotiation Simulation */}
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (offerJob) handleStartNegotiation(offerJob);
+                    }}
+                    className="w-full py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-indigo-600 hover:from-emerald-500 hover:to-indigo-500 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-500/20 transition"
+                  >
+                    <DollarSign className="w-3.5 h-3.5" />
+                    Launch Live Salary Counter-Negotiation Simulator
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -1668,6 +1776,224 @@ export function JobsPage() {
                         </p>
                       </div>
                     )}
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )}
+
+      {/* Interactive Salary & Compensation Negotiation Studio Modal */}
+      {negotiationModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-emerald-500/30 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center space-x-3">
+                <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <DollarSign className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    Salary & Offer Negotiation Studio
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Roleplay counter-offer discussions against realistic recruiter pushback with real-time scoring
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setNegotiationModalOpen(false)}
+                className="text-slate-500 hover:text-white transition p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {loadingNegotiation ? (
+              <div className="py-12 flex flex-col items-center justify-center space-y-3">
+                <Cpu className="w-8 h-8 text-emerald-400 animate-spin" />
+                <p className="text-sm text-slate-400">Initializing compensation committee scenario...</p>
+              </div>
+            ) : negotiationScenario ? (
+              <div className="space-y-5">
+                {/* Offer Comparison Strip */}
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
+                    <span className="text-[10px] uppercase font-bold text-slate-500">Initial Offer (Base / Equity / Sign-On)</span>
+                    <p className="text-base font-bold text-white font-mono">
+                      ${negotiationScenario.current_offer.first_year_tc.toLocaleString()} <span className="text-xs text-slate-400 font-normal">First-Year TC</span>
+                    </p>
+                    <p className="text-[11px] text-slate-400 font-mono">
+                      Base: ${negotiationScenario.current_offer.base_salary.toLocaleString()} • Equity: ${negotiationScenario.current_offer.equity_annual.toLocaleString()} • Sign-on: ${negotiationScenario.current_offer.sign_on_bonus.toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-slate-950/80 border border-indigo-500/30 space-y-1">
+                    <span className="text-[10px] uppercase font-bold text-indigo-400">Target Benchmark Objective</span>
+                    <p className="text-base font-bold text-emerald-400 font-mono">
+                      ${negotiationScenario.target_compensation.first_year_tc.toLocaleString()} <span className="text-xs text-slate-400 font-normal">Target TC</span>
+                    </p>
+                    <p className="text-[11px] text-slate-400 font-mono">
+                      Target Base: ${negotiationScenario.target_compensation.base_salary.toLocaleString()} • Target Equity: ${negotiationScenario.target_compensation.equity_annual.toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Recruiter Pushback Box */}
+                <div className="p-4 rounded-xl bg-slate-950/90 border border-slate-800 space-y-2">
+                  <div className="flex items-center justify-between text-xs flex-wrap gap-2">
+                    <span className="font-bold text-emerald-400 font-mono">
+                      Recruiter: {negotiationScenario.recruiter_persona} ({negotiationScenario.company_name})
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleSpeakQuestion(negotiationScenario.recruiter_objection)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition ${
+                        isPlayingAudio
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse'
+                          : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                      }`}
+                      title="Listen to the recruiter's counter-proposal verbally"
+                    >
+                      {isPlayingAudio ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5 text-emerald-400" />}
+                      {isPlayingAudio ? 'Stop Audio' : 'Listen Aloud'}
+                    </button>
+                  </div>
+                  <p className="text-sm text-white font-medium leading-relaxed">
+                    "{negotiationScenario.recruiter_objection}"
+                  </p>
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {negotiationScenario.tactical_hints.map((hint, idx) => (
+                      <span key={idx} className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-indigo-300 border border-slate-700">
+                        {hint}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Candidate Counter Input */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <label className="font-bold text-slate-300">Your Counter-Proposal Pitch</label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleToggleMic}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition ${
+                          isListeningMic
+                            ? 'bg-red-500/20 text-red-400 border border-red-500/40 animate-pulse'
+                            : 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700'
+                        }`}
+                        title="Dictate counter-offer proposal out loud"
+                      >
+                        {isListeningMic ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5 text-emerald-400" />}
+                        {isListeningMic ? 'Listening...' : 'Voice Dictate'}
+                      </button>
+                      <span className="text-slate-500 font-mono">
+                        {candidateCounterText.trim() ? `${candidateCounterText.trim().split(/\s+/).length} words` : '0 words'}
+                      </span>
+                    </div>
+                  </div>
+                  <textarea
+                    rows={4}
+                    value={candidateCounterText}
+                    onChange={(e) => setCandidateCounterText(e.target.value)}
+                    placeholder="Express genuine enthusiasm, frame your 10+ years backend expertise as risk reduction, anchor on first-year total comp, and offer flexible levers (equity/sign-on) to bypass base ceilings..."
+                    className="w-full p-3 text-xs rounded-xl bg-slate-950 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-sans leading-relaxed"
+                  />
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleSubmitNegotiationCounter}
+                      disabled={evaluatingNegotiation || candidateCounterText.trim().length < 20}
+                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 transition shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+                    >
+                      {evaluatingNegotiation ? <Cpu className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                      {evaluatingNegotiation ? 'Evaluating Counter Strategy...' : 'Submit Counter-Proposal to Recruiter'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Negotiation Evaluation & Revised Offer Result */}
+                {negotiationEvaluation && (
+                  <div className="p-5 rounded-xl bg-slate-950/90 border border-emerald-500/40 space-y-4">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl font-extrabold text-white font-mono">
+                          {negotiationEvaluation.overall_tactical_score}/100
+                        </span>
+                        <span className="text-xs font-bold px-2.5 py-0.5 rounded font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                          {negotiationEvaluation.verdict.replace(/_/g, ' ')}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-4 text-xs font-mono text-slate-400">
+                        <span>Leverage: <strong className="text-emerald-400">{negotiationEvaluation.leverage_score}%</strong></span>
+                        <span>Firmness: <strong className="text-emerald-400">{negotiationEvaluation.firmness_score}%</strong></span>
+                        <span>Value Optimization: <strong className="text-emerald-400">{negotiationEvaluation.value_optimization_score}%</strong></span>
+                      </div>
+                    </div>
+
+                    {/* Recruiter Revised Counter-Response */}
+                    <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+                      <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                        <MessageSquare className="w-3.5 h-3.5 text-emerald-400" /> Recruiter Response & Concession
+                      </span>
+                      <p className="text-xs text-slate-200 leading-relaxed italic">
+                        "{negotiationEvaluation.recruiter_counter_response}"
+                      </p>
+                      <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-xs font-mono">
+                        <span className="text-slate-400">Revised Total Comp:</span>
+                        <span className="font-bold text-emerald-400 text-sm">
+                          ${negotiationEvaluation.revised_offer.first_year_tc.toLocaleString()} (+$35,000 gain)
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Tactical Critiques & Strengths */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                      <div className="p-3 rounded-lg bg-slate-900 border border-slate-800 space-y-1">
+                        <span className="font-bold text-emerald-400">Strengths in Your Counter</span>
+                        <ul className="space-y-1 text-slate-300">
+                          {negotiationEvaluation.strengths.map((str, idx) => (
+                            <li key={idx} className="flex items-start gap-1.5">
+                              <span className="text-emerald-400">•</span>
+                              <span>{str}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div className="p-3 rounded-lg bg-slate-900 border border-slate-800 space-y-1">
+                        <span className="font-bold text-amber-400">Tactical Improvement Points</span>
+                        <ul className="space-y-1 text-slate-300">
+                          {negotiationEvaluation.tactical_critique.map((crit, idx) => (
+                            <li key={idx} className="flex items-start gap-1.5">
+                              <span className="text-amber-400">•</span>
+                              <span>{crit}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+
+                    {/* Polished Model Script */}
+                    <div className="p-3 rounded-lg bg-slate-900 border border-slate-800 space-y-1 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-300">Polished Benchmark Script</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(negotiationEvaluation.model_counter_script);
+                            alert('Copied model counter script to clipboard!');
+                          }}
+                          className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 hover:text-white text-[11px] font-semibold flex items-center gap-1"
+                        >
+                          <Copy className="w-3 h-3" /> Copy Script
+                        </button>
+                      </div>
+                      <p className="text-slate-300 leading-relaxed font-sans text-xs pt-1">
+                        {negotiationEvaluation.model_counter_script}
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>

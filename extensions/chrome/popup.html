@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <style>
     body {
-      width: 320px;
+      width: 340px;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       padding: 16px;
       margin: 0;
@@ -13,21 +13,44 @@
     }
     h2 {
       font-size: 14px;
-      margin: 0 0 12px 0;
+      margin: 0 0 10px 0;
       color: #818cf8;
       display: flex;
       align-items: center;
-      gap: 6px;
+      justify-content: space-between;
+    }
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 12px;
+      background: #1e293b;
+      padding: 2px;
+      border-radius: 8px;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 5px 8px;
+      font-size: 11px;
+      font-weight: 600;
+      background: transparent;
+      color: #94a3b8;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .tab-btn.active {
+      background: #4f46e5;
+      color: #fff;
     }
     .field {
-      margin-bottom: 10px;
+      margin-bottom: 9px;
     }
     label {
       display: block;
       font-size: 11px;
       font-weight: 600;
       color: #94a3b8;
-      margin-bottom: 3px;
+      margin-bottom: 2px;
     }
     input, textarea {
       width: 100%;
@@ -39,7 +62,17 @@
       border-radius: 6px;
       font-size: 12px;
     }
-    button {
+    .char-counter {
+      font-size: 10px;
+      text-align: right;
+      color: #94a3b8;
+      margin-top: 2px;
+      font-family: monospace;
+    }
+    .char-counter.warning {
+      color: #f59e0b;
+    }
+    .btn-primary {
       width: 100%;
       padding: 8px;
       background: #4f46e5;
@@ -49,10 +82,25 @@
       font-size: 12px;
       font-weight: 600;
       cursor: pointer;
-      margin-top: 8px;
+      margin-top: 6px;
     }
-    button:hover {
+    .btn-primary:hover {
       background: #4338ca;
+    }
+    .btn-secondary {
+      width: 100%;
+      padding: 6px;
+      background: #334155;
+      color: #e2e8f0;
+      border: none;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 5px;
+    }
+    .btn-secondary:hover {
+      background: #475569;
     }
     #status {
       margin-top: 8px;
@@ -65,24 +113,57 @@
   </style>
 </head>
 <body>
-  <h2>⚡ AI Recruiter Job Clipper</h2>
-  <div class="field">
-    <label>Job Title</label>
-    <input type="text" id="title" required>
+  <h2>
+    <span>⚡ AI Recruiter Clipper</span>
+    <span id="badge" style="font-size: 10px; font-weight: normal; color: #a5b4fc;">v1.2</span>
+  </h2>
+
+  <!-- Mode Selector Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" id="tabJobs">Job Listing</button>
+    <button class="tab-btn" id="tabLinkedIn">LinkedIn Recruiter</button>
   </div>
-  <div class="field">
-    <label>Company</label>
-    <input type="text" id="company" required>
+
+  <!-- Panel 1: Job Opportunity Clipper -->
+  <div id="panelJobs">
+    <div class="field">
+      <label>Job Title</label>
+      <input type="text" id="jobTitle" required>
+    </div>
+    <div class="field">
+      <label>Company</label>
+      <input type="text" id="jobCompany" required>
+    </div>
+    <div class="field">
+      <label>Posting URL</label>
+      <input type="url" id="jobUrl" required>
+    </div>
+    <div class="field">
+      <label>Estimated Base Salary ($)</label>
+      <input type="number" id="jobSalary" placeholder="185000">
+    </div>
+    <button class="btn-primary" id="clipJobBtn">Clip Opportunity to Pipeline</button>
   </div>
-  <div class="field">
-    <label>Posting URL</label>
-    <input type="url" id="url" required>
+
+  <!-- Panel 2: LinkedIn Recruiter & 300-Char Note Drafter -->
+  <div id="panelLinkedIn" style="display: none;">
+    <div class="field">
+      <label>Recruiter / Hiring Manager Name</label>
+      <input type="text" id="recName" placeholder="Elena Rostova">
+    </div>
+    <div class="field">
+      <label>Title & Company</label>
+      <input type="text" id="recTitle" placeholder="Director of Engineering Talent at Datadog">
+    </div>
+    <div class="field">
+      <label>Personalized 300-Char Connection Pitch</label>
+      <textarea id="linkedinPitch" rows="4"></textarea>
+      <div class="char-counter" id="charCount">0 / 300 chars</div>
+    </div>
+    <button class="btn-primary" id="copyPitchBtn">Copy 300-Char Note (Ready to Paste)</button>
+    <button class="btn-secondary" id="saveRecruiterBtn">Save Contact to AI Recruiter</button>
   </div>
-  <div class="field">
-    <label>Estimated Salary ($)</label>
-    <input type="number" id="salary" placeholder="185000">
-  </div>
-  <button id="clipBtn">Clip to AI Recruiter Pipeline</button>
+
   <div id="status"></div>
   <script src="popup.js"></script>
 </body>
