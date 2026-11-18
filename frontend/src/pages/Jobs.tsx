@@ -8,8 +8,10 @@ import {
   ExternalLink, 
   Globe, 
   Layers,
+  MessageSquare,
   Plus, 
   Search, 
+  Send,
   Sparkles, 
   X, 
   AlertTriangle, 
@@ -159,11 +161,48 @@ interface CompanyDossier {
   strategic_candidate_positioning: string;
 }
 
+interface MockInterviewQuestion {
+  session_id: string;
+  job_id: string;
+  company_name: string;
+  job_title: string;
+  interviewer_persona: string;
+  track: string;
+  round_number: number;
+  question: string;
+  scenario_context: string;
+  recommended_focus_areas: string[];
+}
+
+interface MockAnswerEvaluation {
+  session_id: string;
+  round_number: number;
+  overall_score: number;
+  technical_rigor_score: number;
+  tradeoff_depth_score: number;
+  star_structure_score: number;
+  verdict: string;
+  strengths: string[];
+  areas_for_improvement: string[];
+  ideal_answer_outline: string;
+  follow_up_question: string | null;
+}
+
 export function JobsPage() {
   const [jobs, setJobs] = useState<JobOpportunity[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [discovering, setDiscovering] = useState<boolean>(false);
   const [discoveryMsg, setDiscoveryMsg] = useState<string | null>(null);
+
+  // Mock Interview Roleplay State
+  const [roleplayModalOpen, setRoleplayModalOpen] = useState(false);
+  const [roleplayTrack, setRoleplayTrack] = useState('distributed_systems');
+  const [activeRoleplayJob, setActiveRoleplayJob] = useState<JobOpportunity | null>(null);
+  const [loadingRoleplay, setLoadingRoleplay] = useState(false);
+  const [evaluatingRoleplay, setEvaluatingRoleplay] = useState(false);
+  const [roleplayQuestion, setRoleplayQuestion] = useState<MockInterviewQuestion | null>(null);
+  const [candidateAnswer, setCandidateAnswer] = useState('');
+  const [roleplayEvaluation, setRoleplayEvaluation] = useState<MockAnswerEvaluation | null>(null);
 
   // Company Dossier Modal
   const [dossierModalOpen, setDossierModalOpen] = useState(false);
@@ -319,6 +358,52 @@ export function JobsPage() {
       setDossierModalOpen(false);
     } finally {
       setLoadingDossier(false);
+    }
+  }
+
+  async function handleStartRoleplay(job: JobOpportunity, track = roleplayTrack) {
+    try {
+      setActiveRoleplayJob(job);
+      setRoleplayModalOpen(true);
+      setLoadingRoleplay(true);
+      setRoleplayEvaluation(null);
+      setCandidateAnswer('');
+      const res = await fetch(`/api/v1/jobs/${job.id}/mock-interview/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ track }),
+      });
+      if (!res.ok) throw new Error('Failed to start interview roleplay session');
+      const data: MockInterviewQuestion = await res.json();
+      setRoleplayQuestion(data);
+    } catch {
+      alert('Error initializing interview simulation.');
+    } finally {
+      setLoadingRoleplay(false);
+    }
+  }
+
+  async function handleSubmitRoleplayAnswer() {
+    if (!roleplayQuestion || !activeRoleplayJob || !candidateAnswer.trim()) return;
+    try {
+      setEvaluatingRoleplay(true);
+      const res = await fetch(`/api/v1/jobs/${activeRoleplayJob.id}/mock-interview/evaluate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: roleplayQuestion.session_id,
+          round_number: roleplayQuestion.round_number,
+          question: roleplayQuestion.question,
+          answer_text: candidateAnswer.trim(),
+        }),
+      });
+      if (!res.ok) throw new Error('Evaluation failed');
+      const data: MockAnswerEvaluation = await res.json();
+      setRoleplayEvaluation(data);
+    } catch {
+      alert('Error evaluating interview answer.');
+    } finally {
+      setEvaluatingRoleplay(false);
     }
   }
 
@@ -584,6 +669,13 @@ export function JobsPage() {
                   </a>
 
                   <div className="flex items-center gap-1.5 flex-wrap">
+                    <button
+                      onClick={() => handleStartRoleplay(job)}
+                      className="px-2.5 py-1 rounded-lg bg-pink-600/20 hover:bg-pink-600/30 text-pink-300 border border-pink-500/30 text-xs font-semibold flex items-center gap-1 transition"
+                      title="Interactive AI Mock Interview Roleplay Studio"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" /> Practice
+                    </button>
                     <button
                       onClick={() => handleOpenCompanyDossier(job)}
                       className="px-2.5 py-1 rounded-lg bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 border border-sky-500/30 text-xs font-semibold flex items-center gap-1 transition"
@@ -1284,6 +1376,209 @@ export function JobsPage() {
                     {activeDossier.strategic_candidate_positioning}
                   </p>
                 </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )}
+
+      {/* Interactive AI Mock Interview Roleplay Studio Modal */}
+      {roleplayModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-pink-500/30 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center space-x-3">
+                <div className="p-2.5 rounded-xl bg-pink-500/10 text-pink-400 border border-pink-500/20">
+                  <MessageSquare className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    Mock Interview Studio: {activeRoleplayJob?.company_name || 'Target Company'}
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Staff-level architectural roleplay with instant rubric scoring & feedback
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setRoleplayModalOpen(false)}
+                className="text-slate-500 hover:text-white transition p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Track Selector */}
+            <div className="flex items-center gap-2 border-b border-slate-800/80 pb-3 flex-wrap">
+              <span className="text-xs font-semibold text-slate-400 mr-2">Track:</span>
+              <button
+                onClick={() => {
+                  setRoleplayTrack('distributed_systems');
+                  if (activeRoleplayJob) handleStartRoleplay(activeRoleplayJob, 'distributed_systems');
+                }}
+                className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${
+                  roleplayTrack === 'distributed_systems'
+                    ? 'bg-pink-600/20 text-pink-300 border border-pink-500/40'
+                    : 'bg-slate-800/60 text-slate-400 hover:text-white'
+                }`}
+              >
+                Distributed Systems
+              </button>
+              <button
+                onClick={() => {
+                  setRoleplayTrack('ai_systems');
+                  if (activeRoleplayJob) handleStartRoleplay(activeRoleplayJob, 'ai_systems');
+                }}
+                className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${
+                  roleplayTrack === 'ai_systems'
+                    ? 'bg-pink-600/20 text-pink-300 border border-pink-500/40'
+                    : 'bg-slate-800/60 text-slate-400 hover:text-white'
+                }`}
+              >
+                AI Systems & Platform
+              </button>
+              <button
+                onClick={() => {
+                  setRoleplayTrack('leadership_behavioral');
+                  if (activeRoleplayJob) handleStartRoleplay(activeRoleplayJob, 'leadership_behavioral');
+                }}
+                className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${
+                  roleplayTrack === 'leadership_behavioral'
+                    ? 'bg-pink-600/20 text-pink-300 border border-pink-500/40'
+                    : 'bg-slate-800/60 text-slate-400 hover:text-white'
+                }`}
+              >
+                Leadership & Influence
+              </button>
+            </div>
+
+            {loadingRoleplay ? (
+              <div className="py-12 flex flex-col items-center justify-center space-y-3">
+                <Cpu className="w-8 h-8 text-pink-400 animate-spin" />
+                <p className="text-sm text-slate-400">Initializing interviewer persona and scenario...</p>
+              </div>
+            ) : roleplayQuestion ? (
+              <div className="space-y-5">
+                {/* Interviewer Persona Card */}
+                <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-pink-400 font-mono">
+                      Interviewer: {roleplayQuestion.interviewer_persona}
+                    </span>
+                    <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-400 text-[11px]">
+                      Round {roleplayQuestion.round_number}
+                    </span>
+                  </div>
+                  <p className="text-sm text-white font-medium leading-relaxed">
+                    "{roleplayQuestion.question}"
+                  </p>
+                  <p className="text-[11px] text-slate-400 italic">
+                    Scenario: {roleplayQuestion.scenario_context}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {roleplayQuestion.recommended_focus_areas.map((area, idx) => (
+                      <span key={idx} className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-indigo-300 border border-slate-700">
+                        {area}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Candidate Answer Input */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <label className="font-bold text-slate-300">Your Response (Candidate Answer)</label>
+                    <span className="text-slate-500 font-mono">
+                      {candidateAnswer.trim() ? `${candidateAnswer.trim().split(/\s+/).length} words` : '0 words'}
+                    </span>
+                  </div>
+                  <textarea
+                    rows={5}
+                    value={candidateAnswer}
+                    onChange={(e) => setCandidateAnswer(e.target.value)}
+                    placeholder="Outline your architectural solution: immediate mitigations, system scale tradeoffs, technology choices (Postgres/Kafka/Celery), and metric validation..."
+                    className="w-full p-3 text-xs rounded-xl bg-slate-950 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-pink-500 font-sans leading-relaxed"
+                  />
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleSubmitRoleplayAnswer}
+                      disabled={evaluatingRoleplay || candidateAnswer.trim().length < 20}
+                      className="px-4 py-2 rounded-xl bg-pink-600 hover:bg-pink-500 text-white text-xs font-semibold flex items-center gap-1.5 transition shadow-lg shadow-pink-500/20 disabled:opacity-50"
+                    >
+                      {evaluatingRoleplay ? <Cpu className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                      {evaluatingRoleplay ? 'Evaluating Response...' : 'Submit Response for AI Scoring'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Evaluation Feedback */}
+                {roleplayEvaluation && (
+                  <div className="p-5 rounded-xl bg-slate-950/90 border border-emerald-500/30 space-y-4">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl font-extrabold text-white font-mono">
+                          {roleplayEvaluation.overall_score}/100
+                        </span>
+                        <span className={`text-xs font-bold px-2.5 py-0.5 rounded font-mono border ${
+                          roleplayEvaluation.verdict === 'STRONG_PASS'
+                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                            : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                        }`}>
+                          {roleplayEvaluation.verdict.replace('_', ' ')}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-4 text-xs font-mono text-slate-400">
+                        <span>Rigor: <strong className="text-emerald-400">{roleplayEvaluation.technical_rigor_score}%</strong></span>
+                        <span>Tradeoffs: <strong className="text-emerald-400">{roleplayEvaluation.tradeoff_depth_score}%</strong></span>
+                        <span>Structure: <strong className="text-emerald-400">{roleplayEvaluation.star_structure_score}%</strong></span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                      <div className="p-3 rounded-lg bg-slate-900 border border-slate-800 space-y-1">
+                        <span className="font-bold text-emerald-400">Strengths Highlighted</span>
+                        <ul className="space-y-1 text-slate-300">
+                          {roleplayEvaluation.strengths.map((str, idx) => (
+                            <li key={idx} className="flex items-start gap-1.5">
+                              <span className="text-emerald-400">•</span>
+                              <span>{str}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div className="p-3 rounded-lg bg-slate-900 border border-slate-800 space-y-1">
+                        <span className="font-bold text-amber-400">Areas for Improvement</span>
+                        <ul className="space-y-1 text-slate-300">
+                          {roleplayEvaluation.areas_for_improvement.map((area, idx) => (
+                            <li key={idx} className="flex items-start gap-1.5">
+                              <span className="text-amber-400">•</span>
+                              <span>{area}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+
+                    <div className="p-3 rounded-lg bg-slate-900 border border-slate-800 space-y-1 text-xs">
+                      <span className="font-bold text-slate-300">Model Answer Architecture</span>
+                      <p className="text-slate-300 whitespace-pre-line leading-relaxed font-mono text-[11px] pt-1">
+                        {roleplayEvaluation.ideal_answer_outline}
+                      </p>
+                    </div>
+
+                    {roleplayEvaluation.follow_up_question && (
+                      <div className="p-3 rounded-lg bg-indigo-950/40 border border-indigo-500/30 space-y-1 text-xs">
+                        <span className="font-bold text-indigo-300 flex items-center gap-1">
+                          <Sparkles className="w-3.5 h-3.5 text-indigo-400" /> Follow-Up Drill:
+                        </span>
+                        <p className="text-slate-200 leading-relaxed italic">
+                          "{roleplayEvaluation.follow_up_question}"
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ) : null}
           </div>

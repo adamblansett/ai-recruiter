@@ -561,24 +561,34 @@ export function ProfilePage() {
         </p>
 
         <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-300">Instant JavaScript Bookmarklet</span>
-            <button
-              type="button"
-              onClick={() => {
-                const code = `javascript:(function(){const title=document.querySelector("h1")?.innerText.trim()||document.title.split("-")[0].trim();const url=window.location.href;const company=url.includes("greenhouse.io/")?url.split("greenhouse.io/")[1].split("/")[0]:(url.includes("lever.co/")?url.split("lever.co/")[1].split("/")[0]:prompt("Company Name:","Target Company"));if(!company)return;const desc=(document.querySelector(".job-description")||document.querySelector("main")||document.body).innerText.slice(0,3000);fetch("http://localhost:8000/api/v1/jobs",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title,company_name:company,source_url:url,raw_description:desc,location:"United States (Remote)",remote_type:"REMOTE",min_salary:185000})}).then(r=>r.ok?alert("✓ Opportunity clipped to AI Recruiter!"):alert("Failed to clip. Is backend running?")).catch(e=>alert("Error connecting to http://localhost:8000"));})();`;
-                navigator.clipboard.writeText(code);
-                setCopiedBookmarklet(true);
-                setTimeout(() => setCopiedBookmarklet(false), 2500);
-              }}
-              className="px-3 py-1 rounded bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 border border-indigo-500/30 text-xs font-semibold flex items-center gap-1.5 transition"
-            >
-              {copiedBookmarklet ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-              {copiedBookmarklet ? 'Copied Bookmarklet Code' : 'Copy Bookmarklet Code'}
-            </button>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <span className="text-xs font-semibold text-slate-300">Browser Extension & Bookmarklet</span>
+            <div className="flex items-center gap-2">
+              <a
+                href="/downloads/ai-recruiter-clipper.zip"
+                download="ai-recruiter-clipper.zip"
+                className="px-3 py-1 rounded bg-sky-600/20 hover:bg-sky-600/30 text-sky-400 border border-sky-500/30 text-xs font-semibold flex items-center gap-1.5 transition"
+                title="Download ready-to-load Chrome Extension ZIP package"
+              >
+                <Download className="w-3.5 h-3.5" /> Download Extension (.ZIP)
+              </a>
+              <button
+                type="button"
+                onClick={() => {
+                  const code = `javascript:(function(){const title=document.querySelector("h1")?.innerText.trim()||document.title.split("-")[0].trim();const url=window.location.href;const company=url.includes("greenhouse.io/")?url.split("greenhouse.io/")[1].split("/")[0]:(url.includes("lever.co/")?url.split("lever.co/")[1].split("/")[0]:prompt("Company Name:","Target Company"));if(!company)return;const desc=(document.querySelector(".job-description")||document.querySelector("main")||document.body).innerText.slice(0,3000);fetch("http://localhost:8000/api/v1/jobs",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title,company_name:company,source_url:url,raw_description:desc,location:"United States (Remote)",remote_type:"REMOTE",min_salary:185000})}).then(r=>r.ok?alert("✓ Opportunity clipped to AI Recruiter!"):alert("Failed to clip. Is backend running?")).catch(e=>alert("Error connecting to http://localhost:8000"));})();`;
+                  navigator.clipboard.writeText(code);
+                  setCopiedBookmarklet(true);
+                  setTimeout(() => setCopiedBookmarklet(false), 2500);
+                }}
+                className="px-3 py-1 rounded bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 border border-indigo-500/30 text-xs font-semibold flex items-center gap-1.5 transition"
+              >
+                {copiedBookmarklet ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                {copiedBookmarklet ? 'Copied Bookmarklet' : 'Copy Bookmarklet'}
+              </button>
+            </div>
           </div>
           <p className="text-[11px] text-slate-500 leading-relaxed">
-            Create a browser bookmark named <code className="text-indigo-300">⚡ Clip to AI Recruiter</code>, paste this code into the URL field, and click it on any job posting to ingest immediately. Extension files are also located in <code className="text-slate-400 font-mono">extensions/chrome/</code>.
+            Download the pre-packaged Chrome Extension (.zip) and unpack into <code className="text-indigo-300">chrome://extensions</code> in Developer Mode, or paste the bookmarklet URL into any browser bookmark bar for 1-click clipping from LinkedIn, Greenhouse, and Lever.
           </p>
         </div>
       </section>

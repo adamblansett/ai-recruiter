@@ -138,6 +138,56 @@ function handleMockResponse(url: string, init?: RequestInit): Promise<Response> 
     return createJsonResponse(getMockDossierForJob(jobId, 'Target Enterprise'));
   }
 
+  // 3b. Interactive Mock Interview Simulation
+  if (url.includes('/mock-interview/start')) {
+    const parts = url.split('/');
+    const jobId = parts[parts.indexOf('jobs') + 1] || 'mock-job-id';
+    return createJsonResponse({
+      session_id: 'sim-demo-771',
+      job_id: jobId,
+      company_name: 'Stripe',
+      job_title: 'Staff Backend Engineer - Core Infrastructure',
+      interviewer_persona: 'Dr. Alicia Vance, Distinguished Infrastructure Architect',
+      track: 'distributed_systems',
+      round_number: 1,
+      question:
+        'We are observing periodic replication lag spikes and connection exhaustion in our primary PostgreSQL and Kafka clusters during flash sale surges. As our Staff Backend Engineer, walk me through your diagnostic approach, immediate mitigation, and permanent architectural remediation.',
+      scenario_context: 'High-write amplification transactional ledger with sub-millisecond SLOs and zero-downtime requirement.',
+      recommended_focus_areas: [
+        'PgBouncer & connection pooler saturation thresholds',
+        'Kafka consumer group lag isolation & partition rebalancing',
+        'Read-replica fanout & asynchronous shadow writes',
+      ],
+    });
+  }
+
+  if (url.includes('/mock-interview/evaluate')) {
+    return createJsonResponse({
+      session_id: 'sim-demo-771',
+      round_number: 1,
+      overall_score: 95,
+      technical_rigor_score: 97,
+      tradeoff_depth_score: 94,
+      star_structure_score: 92,
+      verdict: 'STRONG_PASS',
+      strengths: [
+        'Exceptional grasp of distributed connection pool exhaustion and vacuum saturation.',
+        'Clear articulation of immediate mitigation vs. lasting architectural remediation.',
+        'Directly addresses zero-downtime requirements and data durability guarantees.',
+      ],
+      areas_for_improvement: [
+        'Could elaborate on observability metrics (e.g. pg_stat_activity query duration percentiles).',
+        'Mention specific Kafka partition key strategies to avoid hot partitions.',
+      ],
+      ideal_answer_outline:
+        '1. Immediate Triage (throttle non-critical batch jobs, inspect lock contention)\n' +
+        '2. Connection Tiering (PgBouncer transaction-mode pooling & queue limits)\n' +
+        '3. Sharding & Streaming (Kafka partition re-keying & idempotent consumers)',
+      follow_up_question:
+        'If two database replicas partition during an availability zone failure, how do you prevent split-brain writes while preserving strict financial ledger linearizability?',
+    });
+  }
+
   // 4. Interview Prep
   if (url.includes('/interview-prep')) {
     const parts = url.split('/');

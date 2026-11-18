@@ -23,6 +23,13 @@ from app.services.company_intelligence_service import (
 )
 from app.services.discovery_service import DiscoveryService
 from app.services.interview_prep_service import InterviewPrepService
+from app.services.interview_simulator_service import (
+    AnswerEvaluation,
+    InterviewQuestion,
+    InterviewSimulatorService,
+    StartSessionPayload,
+    SubmitAnswerPayload,
+)
 from app.services.tailored_artifact_service import TailoredArtifactService
 from pydantic import BaseModel, Field
 
@@ -222,3 +229,29 @@ async def get_company_dossier(
         return await CompanyIntelligenceService.get_company_dossier(db, job_id)
     except ValueError as ve:
         raise HTTPException(status_code=404, detail=str(ve))
+
+
+@router.post("/{job_id}/mock-interview/start", response_model=InterviewQuestion, summary="Start Interactive AI Mock Interview Session")
+async def start_mock_interview(
+    job_id: uuid.UUID,
+    payload: Optional[StartSessionPayload] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Initiates an interactive AI mock interview simulation with an interviewer persona
+    tailored to the target role and company.
+    """
+    track = payload.track if payload and payload.track else "distributed_systems"
+    return await InterviewSimulatorService.start_session(db, job_id, track)
+
+
+@router.post("/{job_id}/mock-interview/evaluate", response_model=AnswerEvaluation, summary="Submit & Evaluate Mock Interview Answer")
+async def evaluate_mock_interview_answer(
+    job_id: uuid.UUID,
+    payload: SubmitAnswerPayload,
+):
+    """
+    Evaluates candidate's architectural response on technical rigor, system scale tradeoffs,
+    and STAR structure; returns instant scorecard and follow-up drill.
+    """
+    return await InterviewSimulatorService.evaluate_answer(payload)
