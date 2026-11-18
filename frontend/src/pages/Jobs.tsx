@@ -1,17 +1,21 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { 
+  Activity,
   Award, 
   Briefcase, 
   Building2,
   CheckCircle2, 
+  Clock3,
   Compass, 
   ExternalLink, 
+  Eye,
   FileText,
   Globe, 
   Layers,
   MessageSquare,
   Mic,
   MicOff,
+  Network,
   Pause,
   Play,
   Plus, 
@@ -20,6 +24,9 @@ import {
   Sparkles, 
   Trash2,
   UploadCloud,
+  Users,
+  Video,
+  VideoOff,
   Volume2,
   VolumeX,
   X, 
@@ -391,6 +398,90 @@ export function JobsPage() {
   // Counter-Offer Email Drafter State
   const [draftingCounterEmail, setDraftingCounterEmail] = useState(false);
 
+  // AI Interview Webcam & Delivery Coach State
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [webcamActive, setWebcamActive] = useState(false);
+  const [webcamStream, setWebcamStream] = useState<MediaStream | null>(null);
+  const [answerElapsedSeconds, setAnswerElapsedSeconds] = useState(0);
+
+  // Custom Negotiation Persona Builder State
+  const [negotiationPersona, setNegotiationPersona] = useState<'big_tech' | 'series_a' | 'collaborative_hr' | 'custom'>('big_tech');
+  const [customPersonaName, setCustomPersonaName] = useState('Founding CTO');
+
+  // Company Engineering Stack Graph State
+  const [stackGraphModalOpen, setStackGraphModalOpen] = useState(false);
+  const [selectedStackCompany, setSelectedStackCompany] = useState<'all' | 'Anthropic' | 'Datadog' | 'Stripe' | 'Figma' | 'Scale AI' | 'Cloudflare'>('all');
+
+  useEffect(() => {
+    let interval: any = null;
+    if (isListeningMic) {
+      interval = setInterval(() => {
+        setAnswerElapsedSeconds((s) => s + 1);
+      }, 1000);
+    } else {
+      if (interval) clearInterval(interval);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isListeningMic]);
+
+  useEffect(() => {
+    if (webcamActive && videoRef.current && webcamStream) {
+      videoRef.current.srcObject = webcamStream;
+    }
+  }, [webcamActive, webcamStream]);
+
+  function handleToggleWebcam() {
+    if (webcamActive) {
+      if (webcamStream) {
+        webcamStream.getTracks().forEach((t) => t.stop());
+        setWebcamStream(null);
+      }
+      setWebcamActive(false);
+      return;
+    }
+
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices
+        .getUserMedia({ video: true, audio: false })
+        .then((stream) => {
+          setWebcamStream(stream);
+          setWebcamActive(true);
+        })
+        .catch((err) => {
+          alert('Could not access camera for interview coaching: ' + err.message);
+        });
+    }
+  }
+
+  function getFillerWordStats(text: string) {
+    const fillerPatterns = [
+      /\bum\b/gi, /\buh\b/gi, /\blike\b/gi, /\bbasically\b/gi,
+      /\byou know\b/gi, /\bactually\b/gi, /\bhonestly\b/gi, /\bsort of\b/gi, /\bkind of\b/gi
+    ];
+    let total = 0;
+    const matches: string[] = [];
+    for (const pat of fillerPatterns) {
+      const found = text.match(pat);
+      if (found) {
+        total += found.length;
+        matches.push(`${found[0].toLowerCase()} (${found.length})`);
+      }
+    }
+    return { total, details: matches };
+  }
+
+  function getWpmStats(text: string, seconds: number) {
+    const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+    if (seconds < 5 || words < 5) return { wpm: 0, status: 'Calibrating...', color: 'text-slate-400' };
+    const minutes = seconds / 60;
+    const wpm = Math.round(words / minutes);
+    if (wpm < 115) return { wpm, status: 'Pacing: Slower than typical (Target: 125–155 WPM)', color: 'text-amber-400' };
+    if (wpm > 165) return { wpm, status: 'Pacing: Fast / Rushing (Target: 125–155 WPM)', color: 'text-rose-400' };
+    return { wpm, status: 'Pacing: Composed & Executive (Optimal)', color: 'text-emerald-400' };
+  }
+
   useEffect(() => {
     fetchJobs();
   }, [remoteOnly, stageFilter]);
@@ -743,8 +834,9 @@ export function JobsPage() {
     }
   }
 
-  async function handleStartNegotiation(job: JobOpportunity) {
+  async function handleStartNegotiation(job: JobOpportunity, personaOverride?: string) {
     try {
+      const selectedPersona = personaOverride || negotiationPersona;
       setNegotiationModalOpen(true);
       setLoadingNegotiation(true);
       setNegotiationEvaluation(null);
@@ -759,6 +851,8 @@ export function JobsPage() {
           initial_base: offerBaseSalary,
           initial_equity: offerEquity,
           initial_sign_on: offerSignOn,
+          persona_type: selectedPersona,
+          custom_persona_name: customPersonaName,
         }),
       });
       if (!res.ok) throw new Error('Failed to start negotiation simulation');
@@ -939,6 +1033,13 @@ export function JobsPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setStackGraphModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold transition"
+            title="Visual engineering architecture stack alignment graph"
+          >
+            <Network className="w-4 h-4 text-emerald-400" /> Tech Stack Graph
+          </button>
           <button
             onClick={() => setCompareModalOpen(true)}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-violet-600/20 hover:bg-violet-600/30 text-violet-300 border border-violet-500/30 text-xs font-semibold transition"
@@ -2025,6 +2126,20 @@ export function JobsPage() {
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
+                        onClick={handleToggleWebcam}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition ${
+                          webcamActive
+                            ? 'bg-pink-600/30 text-pink-300 border border-pink-500/50 shadow-sm'
+                            : 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700'
+                        }`}
+                        title="Toggle local webcam mirror & live delivery coaching metrics"
+                      >
+                        {webcamActive ? <VideoOff className="w-3.5 h-3.5 text-pink-400" /> : <Video className="w-3.5 h-3.5 text-pink-400" />}
+                        {webcamActive ? 'Disable Coach' : 'Webcam Coach'}
+                      </button>
+
+                      <button
+                        type="button"
                         onClick={handleToggleMic}
                         className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition ${
                           isListeningMic
@@ -2041,6 +2156,72 @@ export function JobsPage() {
                       </span>
                     </div>
                   </div>
+
+                  {/* AI Interview Video / Webcam Pose & Delivery Coach Drawer */}
+                  {webcamActive && (
+                    <div className="p-3 rounded-xl bg-slate-950 border border-pink-500/30 grid grid-cols-1 sm:grid-cols-3 gap-3 animate-in fade-in duration-200">
+                      {/* Video Mirror with Eye-Contact Guide Overlay */}
+                      <div className="relative rounded-lg overflow-hidden border border-slate-800 bg-black aspect-video flex items-center justify-center">
+                        <video
+                          ref={videoRef}
+                          autoPlay
+                          playsInline
+                          muted
+                          className="w-full h-full object-cover transform -scale-x-100"
+                        />
+                        <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                          {/* Centering crosshair guide */}
+                          <div className="w-20 h-20 rounded-full border border-pink-500/30 border-dashed animate-pulse" />
+                        </div>
+                        <span className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-sm text-[9px] font-mono text-pink-300 flex items-center gap-1">
+                          <Eye className="w-3 h-3 text-pink-400" /> Frame Center
+                        </span>
+                      </div>
+
+                      {/* Live Delivery Coaching Metrics */}
+                      <div className="sm:col-span-2 space-y-2 text-xs">
+                        <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
+                          <span className="font-bold text-white uppercase tracking-wider flex items-center gap-1.5 text-[11px]">
+                            <Activity className="w-3.5 h-3.5 text-pink-400" /> Live Delivery Coach
+                          </span>
+                          <span className="text-slate-400 font-mono text-[10px] flex items-center gap-1">
+                            <Clock3 className="w-3 h-3 text-slate-500" /> Duration:{' '}
+                            {Math.floor(answerElapsedSeconds / 60)}:{String(answerElapsedSeconds % 60).padStart(2, '0')}
+                          </span>
+                        </div>
+
+                        {/* WPM Pacing Gauge */}
+                        {(() => {
+                          const p = getWpmStats(candidateAnswer, answerElapsedSeconds);
+                          return (
+                            <div className="flex items-center justify-between text-[11px] bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                              <span className="text-slate-400">Pacing (WPM):</span>
+                              <span className={`font-mono font-semibold ${p.color}`}>
+                                {p.wpm > 0 ? `${p.wpm} WPM • ${p.status}` : 'Speak for 5s to calibrate...'}
+                              </span>
+                            </div>
+                          );
+                        })()}
+
+                        {/* Filler Word Counter */}
+                        {(() => {
+                          const f = getFillerWordStats(candidateAnswer);
+                          return (
+                            <div className="flex items-center justify-between text-[11px] bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                              <span className="text-slate-400">Filler Words:</span>
+                              <span className={`font-mono font-semibold ${f.total === 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                {f.total === 0 ? '0 detected (Clean Delivery)' : `${f.total} detected: ${f.details.join(', ')}`}
+                              </span>
+                            </div>
+                          );
+                        })()}
+
+                        <p className="text-[10px] text-slate-500 italic">
+                          100% Client-Side. Video stream is rendered purely in-browser and never transmitted externally.
+                        </p>
+                      </div>
+                    </div>
+                  )}
                   <textarea
                     rows={5}
                     value={candidateAnswer}
@@ -2206,6 +2387,85 @@ export function JobsPage() {
               >
                 <X className="w-5 h-5" />
               </button>
+            </div>
+
+            {/* Recruiter Persona Switcher */}
+            <div className="flex items-center gap-2 border-b border-slate-800 pb-3 flex-wrap text-xs">
+              <span className="font-semibold text-slate-400 flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5 text-emerald-400" /> Recruiter Persona:
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setNegotiationPersona('big_tech');
+                  if (offerJob) handleStartNegotiation(offerJob, 'big_tech');
+                }}
+                className={`px-2.5 py-1 rounded-lg font-semibold transition ${
+                  negotiationPersona === 'big_tech'
+                    ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 shadow-sm'
+                    : 'bg-slate-800 text-slate-400 hover:text-white'
+                }`}
+                title="Rachel Miller: Rigid base band caps ($195k-$205k), deep pockets for RSUs and sign-on cash"
+              >
+                🏢 Big Tech Comp Chair
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setNegotiationPersona('series_a');
+                  if (offerJob) handleStartNegotiation(offerJob, 'series_a');
+                }}
+                className={`px-2.5 py-1 rounded-lg font-semibold transition ${
+                  negotiationPersona === 'series_a'
+                    ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 shadow-sm'
+                    : 'bg-slate-800 text-slate-400 hover:text-white'
+                }`}
+                title="Alex Chen: Runway-conscious early stage founder, offers outsized equity upside and refreshers"
+              >
+                🚀 Series A Founder
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setNegotiationPersona('collaborative_hr');
+                  if (offerJob) handleStartNegotiation(offerJob, 'collaborative_hr');
+                }}
+                className={`px-2.5 py-1 rounded-lg font-semibold transition ${
+                  negotiationPersona === 'collaborative_hr'
+                    ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 shadow-sm'
+                    : 'bg-slate-800 text-slate-400 hover:text-white'
+                }`}
+                title="Marcus Vance: Consultative and supportive, open to title upgrades, remote stipends, and early review cadences"
+              >
+                🤝 Collaborative HR
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setNegotiationPersona('custom');
+                  if (offerJob) handleStartNegotiation(offerJob, 'custom');
+                }}
+                className={`px-2.5 py-1 rounded-lg font-semibold transition ${
+                  negotiationPersona === 'custom'
+                    ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 shadow-sm'
+                    : 'bg-slate-800 text-slate-400 hover:text-white'
+                }`}
+                title="Customizable recruiter name and budget flexibility"
+              >
+                ⚙️ Custom Persona
+              </button>
+              {negotiationPersona === 'custom' && (
+                <div className="flex items-center gap-2 pt-1 w-full text-xs">
+                  <span className="text-slate-400">Custom Recruiter Title / Name:</span>
+                  <input
+                    type="text"
+                    value={customPersonaName}
+                    onChange={(e) => setCustomPersonaName(e.target.value)}
+                    className="px-2.5 py-1 rounded bg-slate-900 border border-slate-700 text-white font-mono text-xs w-64 focus:outline-none focus:border-emerald-500"
+                    placeholder="e.g. Founding Partner & CTO"
+                  />
+                </div>
+              )}
             </div>
 
             {loadingNegotiation ? (
@@ -2600,6 +2860,186 @@ export function JobsPage() {
               <Sparkles className="w-4 h-4 text-violet-400 flex-shrink-0 mt-0.5" />
               <div>
                 <strong className="text-white font-semibold">Cross-Offer Negotiation Dynamic:</strong> Anthropic provides the highest nominal equity upside ($140k/yr), while Datadog offers the highest liquidity and predictable public equity. Use Anthropic's $240k base to negotiate Stripe and Datadog up from their initial $220k-$230k offers.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Company Engineering Stack Graph Modal */}
+      {stackGraphModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-emerald-500/30 rounded-2xl max-w-5xl w-full max-h-[92vh] overflow-y-auto p-6 space-y-6 shadow-2xl">
+            {/* Header */}
+            <div className="flex items-start justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center space-x-3">
+                <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <Network className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    Company Engineering Stack & Architecture Alignment Graph
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Visual topology mapping Adam Blansett’s 10+ years backend expertise directly to target company production architectures
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setStackGraphModalOpen(false)}
+                className="text-slate-500 hover:text-white transition p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Target Company Selector Pills */}
+            <div className="flex items-center gap-2 border-b border-slate-800 pb-3 flex-wrap text-xs">
+              <span className="font-semibold text-slate-400">Select Architecture Scope:</span>
+              {(['all', 'Anthropic', 'Datadog', 'Stripe', 'Figma', 'Scale AI', 'Cloudflare'] as const).map((comp) => (
+                <button
+                  key={comp}
+                  onClick={() => setSelectedStackCompany(comp)}
+                  className={`px-3 py-1 rounded-lg font-semibold transition ${
+                    selectedStackCompany === comp
+                      ? 'bg-emerald-600 text-white shadow-md'
+                      : 'bg-slate-800 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {comp === 'all' ? '🌐 All Ecosystem' : comp}
+                </button>
+              ))}
+            </div>
+
+            {/* Alignment Spotlight Card */}
+            <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div className="space-y-1">
+                <span className="font-bold text-white text-sm">
+                  {selectedStackCompany === 'all' ? 'Unified Target Tech Alignment' : `${selectedStackCompany} Architectural Focus`}
+                </span>
+                <p className="text-slate-400 leading-relaxed">
+                  {selectedStackCompany === 'Anthropic' && 'Model serving inference latency reduction, GPU batch scheduling, and robust Python prompt harness guardrails.'}
+                  {selectedStackCompany === 'Datadog' && 'High-throughput event stream telemetry ingestion, sub-millisecond API response budgets, and PgBouncer/Postgres scaling.'}
+                  {selectedStackCompany === 'Stripe' && 'Global distributed ledger consistency, idempotency key guarantees, and zero-downtime database schema migrations.'}
+                  {selectedStackCompany === 'Figma' && 'Real-time WebSocket multiplayer synchronization, distributed state machines, and microservice resilience.'}
+                  {selectedStackCompany === 'Scale AI' && 'High-concurrency batch worker pools, Celery queue isolation, and LLM RLHF human-in-the-loop task routing.'}
+                  {selectedStackCompany === 'Cloudflare' && 'Edge compute runtime proxying, distributed KV caching, and zero-trust authentication authorization gates.'}
+                  {selectedStackCompany === 'all' && 'Cross-cutting synergy across high-throughput distributed backends, asynchronous messaging, and enterprise AI orchestration.'}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 flex-shrink-0 bg-slate-900 p-2.5 rounded-lg border border-slate-800">
+                <div className="text-right">
+                  <span className="text-[10px] uppercase font-mono text-slate-500 block">Candidate Fit</span>
+                  <span className="text-lg font-black text-emerald-400 font-mono">
+                    {selectedStackCompany === 'Anthropic' ? '98%' : selectedStackCompany === 'Datadog' ? '96%' : selectedStackCompany === 'Stripe' ? '95%' : selectedStackCompany === 'Scale AI' ? '97%' : '95%'}
+                  </span>
+                </div>
+                <div className="w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold text-xs">
+                  ✓
+                </div>
+              </div>
+            </div>
+
+            {/* 6 Architectural Layers Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+              {/* Layer 1: Core API */}
+              <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-white uppercase tracking-wider">1. Application & API Layer</span>
+                  <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">Core Match</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {['FastAPI (Python 3.12)', 'Asyncio Event Loops', 'Pydantic v2', 'TypeScript', 'Node.js', 'REST / gRPC'].map((n) => (
+                    <span key={n} className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-[11px] font-mono text-indigo-300">
+                      {n}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Layer 2: Distributed Messaging */}
+              <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-white uppercase tracking-wider">2. Event Streaming & Tasks</span>
+                  <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">10+ Yrs Scale</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {['Apache Kafka', 'Celery Task Queues', 'Redis Pub/Sub', 'Dead-Letter Routing', 'Idempotency Keys'].map((n) => (
+                    <span key={n} className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-[11px] font-mono text-indigo-300">
+                      {n}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Layer 3: Persistence */}
+              <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-white uppercase tracking-wider">3. Persistence & Caching</span>
+                  <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">High Concurrency</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {['PostgreSQL 16', 'PgBouncer Pooling', 'Redis Cache Cluster', 'Alembic Migrations', 'Query Profiling'].map((n) => (
+                    <span key={n} className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-[11px] font-mono text-indigo-300">
+                      {n}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Layer 4: AI Fabric */}
+              <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-white uppercase tracking-wider">4. AI / LLM Orchestration</span>
+                  <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">Provider-Neutral</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {['Ollama (Llama 3.2 3B)', 'Structured JSON Outputs', 'Prompt Isolation', 'RAG & Vector Embeddings'].map((n) => (
+                    <span key={n} className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-[11px] font-mono text-indigo-300">
+                      {n}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Layer 5: Security */}
+              <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-white uppercase tracking-wider">5. Security & Authorization</span>
+                  <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">Zero-Trust</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {['OAuth 2.0 / OIDC', 'JWT Authentication', 'HashiCorp Vault', 'Role-Based Access Control', 'Mutual TLS'].map((n) => (
+                    <span key={n} className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-[11px] font-mono text-indigo-300">
+                      {n}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Layer 6: Cloud & DevOps */}
+              <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-white uppercase tracking-wider">6. Cloud & Infrastructure</span>
+                  <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">Production-Proven</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {['Docker & Multi-Stage', 'Kubernetes', 'AWS (ECS, S3, RDS)', 'Terraform IaC', 'Linux Internals'].map((n) => (
+                    <span key={n} className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-[11px] font-mono text-indigo-300">
+                      {n}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Strategic Interview Talking Points */}
+            <div className="p-4 rounded-xl bg-emerald-950/20 border border-emerald-500/20 text-xs text-emerald-300 flex items-start gap-2.5">
+              <Sparkles className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <strong className="text-white font-semibold">Strategic Interview Positioning:</strong> Adam's combination of deep asynchronous Python/FastAPI microservices and zero-trust authentication allows immediate senior-level contributions without onboarding lag. Use the 10+ year track record in zero-downtime database migrations as a key differentiator during system design panels.
               </div>
             </div>
           </div>

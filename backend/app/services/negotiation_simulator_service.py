@@ -48,6 +48,73 @@ class StartNegotiationPayload(BaseModel):
     initial_base: Optional[float] = 195000
     initial_equity: Optional[float] = 45000
     initial_sign_on: Optional[float] = 15000
+    persona_type: Optional[str] = "big_tech"  # "big_tech", "series_a", "collaborative_hr", "custom"
+    custom_persona_name: Optional[str] = None
+    custom_base_flexibility: Optional[int] = 15000
+    custom_equity_flexibility: Optional[int] = 25000
+    custom_aggression_level: Optional[int] = 3
+
+
+PERSONA_PROFILES = {
+    "big_tech": {
+        "name": "Rachel Miller, Lead Compensation Partner",
+        "title": "Big Tech Comp Committee Chair",
+        "style": "Formal, band-governed, benchmark-driven",
+        "description": "Rigid base salary band ceilings; deep pockets for RSUs, sign-on bridges, and performance refreshers.",
+        "base_flex": 10000,
+        "equity_flex": 20000,
+        "sign_on_flex": 15000,
+        "objection": (
+            "We are thrilled to extend an offer for the {role} role at {company}! Our compensation team put together our strongest standard package: "
+            "${base:,.0f} base salary, ${equity:,.0f}/yr RSU equity, and a ${sign_on:,.0f} sign-on bonus. "
+            "Our internal engineering bands have a strict policy ceiling around base salary to maintain parity across our Staff L6 cohort. "
+            "How does this align with your expectations?"
+        ),
+        "hints": [
+            "Acknowledge genuine enthusiasm for the team's scale and technical roadmap first.",
+            "Respect their base band ceiling, but pivot aggressively to RSUs and a Year 1 sign-on cash bridge.",
+            "Cite comparable offers or market benchmarks for 10+ years backend scale.",
+        ],
+    },
+    "series_a": {
+        "name": "Alex Chen, Founding CTO & Co-Founder",
+        "title": "Series A/B Startup Founder",
+        "style": "Entrepreneurial, runway-conscious, equity-heavy",
+        "description": "Fiercely guards cash burn; high willingness to grant outsized equity upside and milestone refreshers.",
+        "base_flex": 5000,
+        "equity_flex": 35000,
+        "sign_on_flex": 5000,
+        "objection": (
+            "Adam, the entire engineering team was blown away by your systems design walkthrough. We want you leading our backend infrastructure as {role}. "
+            "Because we are managing our Series A cash runway carefully, our cash base is capped at ${base:,.0f}, but we've allocated a top-tier ${equity:,.0f}/yr equity stake. "
+            "We need owners who believe in 10x upside rather than maximizing immediate cash. Can you make this work?"
+        ),
+        "hints": [
+            "Demonstrate understanding of startup unit economics and runway discipline.",
+            "Ask for expanded equity grants, accelerated vesting provisions, or extended exercise windows.",
+            "Propose a 6-month performance milestone for an automatic cash base adjustment upon hitting scale metrics.",
+        ],
+    },
+    "collaborative_hr": {
+        "name": "Marcus Vance, VP of People & Talent",
+        "title": "Director of Talent Experience",
+        "style": "Empathetic, consultative, total-rewards focused",
+        "description": "Collaborative and values team retention; open to balanced base bumps, title upgrades, and remote allowances.",
+        "base_flex": 15000,
+        "equity_flex": 15000,
+        "sign_on_flex": 10000,
+        "objection": (
+            "Welcome to {company}! We are so excited to extend this offer for {role}. We crafted an initial total package of ${base:,.0f} base, "
+            "${equity:,.0f}/yr equity, and ${sign_on:,.0f} sign-on, along with comprehensive benefits and full remote flexibility. "
+            "We want you to feel valued and supported from day one. Walk me through your thoughts on the overall compensation structure."
+        ),
+        "hints": [
+            "Express clear enthusiasm and appreciation for the transparent process.",
+            "State your target total compensation ($300k TC) calmly and ask how you can work together to bridge the gap.",
+            "Leverage non-cash levers: remote setup budget, conference stipends, and early review cadences.",
+        ],
+    },
+}
 
 
 class SubmitCounterPayload(BaseModel):
@@ -82,27 +149,42 @@ class NegotiationSimulatorService:
             first_year_tc=300000,
         )
 
+        p_type = payload.persona_type or "big_tech"
+        if p_type == "custom":
+            recruiter_name = payload.custom_persona_name or "Custom Executive Recruiter"
+            objection = (
+                f"Thank you for interviewing for the {payload.role_title} role at {payload.company_name}. "
+                f"Our committee's initial package is ${current_offer.base_salary:,.0f} base salary, ${current_offer.equity_annual:,.0f}/yr equity, "
+                f"and a ${current_offer.sign_on_bonus:,.0f} sign-on bonus. How does this align with your expectations?"
+            )
+            hints = [
+                "Clearly articulate your total compensation expectations with confidence.",
+                "Highlight your 10+ years backend and distributed systems accomplishments.",
+                "Provide flexible tradeoffs across base, equity, and sign-on bonus.",
+            ]
+        else:
+            profile = PERSONA_PROFILES.get(p_type, PERSONA_PROFILES["big_tech"])
+            recruiter_name = profile["name"]
+            objection = profile["objection"].format(
+                role=payload.role_title,
+                company=payload.company_name,
+                base=current_offer.base_salary,
+                equity=current_offer.equity_annual,
+                sign_on=current_offer.sign_on_bonus,
+            )
+            hints = profile["hints"]
+
         return NegotiationScenario(
             session_id=session_id,
             job_id=payload.job_id,
             company_name=payload.company_name or "Target Enterprise",
             role_title=payload.role_title or "Staff Backend Engineer",
-            recruiter_persona="Rachel Miller, Lead Compensation Partner",
+            recruiter_persona=recruiter_name,
             round_number=1,
             current_offer=current_offer,
             target_compensation=target_comp,
-            recruiter_objection=(
-                f"We are thrilled to offer you the {payload.role_title} role! Our compensation team put together our strongest standard package: "
-                f"${current_offer.base_salary:,.0f} base salary, ${current_offer.equity_annual:,.0f}/yr equity, and a ${current_offer.sign_on_bonus:,.0f} sign-on bonus. "
-                f"Our internal engineering base bands for this level have a strict ceiling around ${current_offer.base_salary:,.0f}. "
-                f"How does this align with your expectations?"
-            ),
-            tactical_hints=[
-                "Acknowledge enthusiasm for the team and technical roadmap first.",
-                "Anchor firmly on total first-year comp ($300k) and experience (10+ years distributed systems).",
-                "If they claim base salary is capped, pivot to expanding equity ($60k/yr) and sign-on ($25k).",
-                "Avoid giving away leverage by stating you have no other options.",
-            ],
+            recruiter_objection=objection,
+            tactical_hints=hints,
         )
 
     @classmethod

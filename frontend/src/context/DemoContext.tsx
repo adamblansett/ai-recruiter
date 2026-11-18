@@ -192,18 +192,62 @@ function handleMockResponse(url: string, init?: RequestInit): Promise<Response> 
   if (url.includes('/negotiation/start')) {
     const parts = url.split('/');
     const jobId = parts[parts.indexOf('jobs') + 1] || 'mock-job-id';
+    const payload = init?.body ? JSON.parse(init.body as string) : {};
+    const pType = payload.persona_type || 'big_tech';
+
+    let personaName = 'Rachel Miller, Lead Compensation Partner';
+    let objectionText =
+      'We are thrilled to offer you the Staff Backend Engineer role! Our compensation team put together our strongest standard package: ' +
+      '$195,000 base salary, $45,000/yr equity, and a $15,000 sign-on bonus ($255,000 first year TC). ' +
+      'Our internal engineering base bands for this level have a strict ceiling around $195,000. ' +
+      'How does this align with your expectations?';
+    let hintsList = [
+      'Acknowledge enthusiasm for the team and technical roadmap first.',
+      'Anchor firmly on total first-year comp ($300k) and experience (10+ years distributed systems).',
+      'If they claim base salary is capped, pivot to expanding equity ($60k/yr) and sign-on ($25k).',
+      'Avoid giving away leverage by stating you have no other options.',
+    ];
+
+    if (pType === 'series_a') {
+      personaName = 'Alex Chen, Founding CTO & Co-Founder';
+      objectionText =
+        'Adam, the team was blown away by your systems design walkthrough. We want you leading our backend infrastructure. ' +
+        'Because we are managing our Series A runway carefully, our cash base is capped at $190,000, but we have allocated a top-tier $65,000/yr equity stake. ' +
+        'We need owners who believe in 10x upside rather than maximizing immediate cash. Can you make this work?';
+      hintsList = [
+        'Demonstrate understanding of startup unit economics and runway discipline.',
+        'Ask for expanded equity grants, accelerated vesting provisions, or extended exercise windows.',
+        'Propose a 6-month performance milestone for an automatic cash base adjustment upon hitting scale metrics.',
+      ];
+    } else if (pType === 'collaborative_hr') {
+      personaName = 'Marcus Vance, VP of People & Talent';
+      objectionText =
+        'Welcome! We are so excited to extend this offer. We crafted an initial package of $195,000 base, $45,000/yr equity, and $15,000 sign-on, ' +
+        'along with comprehensive benefits and full remote flexibility. We want you to feel valued and supported from day one. Walk me through your thoughts.';
+      hintsList = [
+        'Express clear enthusiasm and appreciation for the transparent process.',
+        'State your target total compensation ($300k TC) calmly and ask how you can work together to bridge the gap.',
+        'Leverage non-cash levers: remote setup budget, conference stipends, and early review cadences.',
+      ];
+    } else if (pType === 'custom') {
+      personaName = payload.custom_persona_name || 'Custom Executive Recruiter';
+      objectionText =
+        `Thank you for interviewing with us. Our committee's initial package is $${(payload.initial_base || 195000).toLocaleString()} base salary, ` +
+        `$${(payload.initial_equity || 45000).toLocaleString()}/yr equity, and a $${(payload.initial_sign_on || 15000).toLocaleString()} sign-on bonus. How does this align with your expectations?`;
+    }
+
     return createJsonResponse({
       session_id: 'neg-demo-882',
       job_id: jobId,
-      company_name: 'Stripe',
-      role_title: 'Staff Backend Engineer - Core Infrastructure',
-      recruiter_persona: 'Rachel Miller, Lead Compensation Partner',
+      company_name: payload.company_name || 'Stripe',
+      role_title: payload.role_title || 'Staff Backend Engineer - Core Infrastructure',
+      recruiter_persona: personaName,
       round_number: 1,
       current_offer: {
-        base_salary: 195000,
-        equity_annual: 45000,
-        sign_on_bonus: 15000,
-        first_year_tc: 255000,
+        base_salary: payload.initial_base || 195000,
+        equity_annual: payload.initial_equity || 45000,
+        sign_on_bonus: payload.initial_sign_on || 15000,
+        first_year_tc: (payload.initial_base || 195000) + (payload.initial_equity || 45000) + (payload.initial_sign_on || 15000),
       },
       target_compensation: {
         base_salary: 215000,
@@ -211,17 +255,8 @@ function handleMockResponse(url: string, init?: RequestInit): Promise<Response> 
         sign_on_bonus: 25000,
         first_year_tc: 300000,
       },
-      recruiter_objection:
-        'We are thrilled to offer you the Staff Backend Engineer role! Our compensation team put together our strongest standard package: ' +
-        '$195,000 base salary, $45,000/yr equity, and a $15,000 sign-on bonus ($255,000 first year TC). ' +
-        'Our internal engineering base bands for this level have a strict ceiling around $195,000. ' +
-        'How does this align with your expectations?',
-      tactical_hints: [
-        'Acknowledge enthusiasm for the team and technical roadmap first.',
-        'Anchor firmly on total first-year comp ($300k) and experience (10+ years distributed systems).',
-        'If they claim base salary is capped, pivot to expanding equity ($60k/yr) and sign-on ($25k).',
-        'Avoid giving away leverage by stating you have no other options.',
-      ],
+      recruiter_objection: objectionText,
+      tactical_hints: hintsList,
     });
   }
 
