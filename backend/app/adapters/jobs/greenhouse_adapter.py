@@ -24,6 +24,10 @@ class GreenhouseBoardAdapter(BaseJobSourceAdapter):
             "automattic",
             "datadog",
             "canonical",
+            "cloudflare",
+            "databricks",
+            "vercel",
+            "hashicorp",
         ]
 
     @property

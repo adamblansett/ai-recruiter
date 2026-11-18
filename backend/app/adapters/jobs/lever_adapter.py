@@ -22,6 +22,9 @@ class LeverBoardAdapter(BaseJobSourceAdapter):
             "netflix",
             "palantir",
             "moderntreasury",
+            "linear",
+            "supabase",
+            "affirm",
         ]
 
     @property

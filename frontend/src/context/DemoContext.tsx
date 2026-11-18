@@ -372,6 +372,55 @@ function handleMockResponse(url: string, init?: RequestInit): Promise<Response> 
     });
   }
 
+  if (url.includes('/api/v1/outreach/followups/pending')) {
+    return createJsonResponse([
+      {
+        id: 'fu-demo-01',
+        original_campaign_id: 'out-03',
+        touchpoint_number: 2,
+        candidate_name: 'Adam Blansett',
+        recruiter_name: 'Elena Rostova',
+        recruiter_email: 'elena.rostova@datadoghq.com',
+        company_name: 'Datadog',
+        job_title: 'Lead AI Systems & Observability Engineer',
+        subject: 'Re: Datadog AI Systems & Observability — Adam Blansett',
+        body_markdown:
+          'Hi Elena,\n\n' +
+          'Following up briefly on my note from last week regarding the Lead AI Systems role at Datadog. ' +
+          'I know how fast-paced engineering hiring cycles can be, so I wanted to check if you had a moment to review my background.\n\n' +
+          'With over a decade of production backend experience scaling streaming pipelines, Kafka clusters, and AI application workflows, ' +
+          'I would be glad to hop on a 15-minute call if this role is still an active priority.\n\n' +
+          'Best regards,\n' +
+          '**Adam Blansett**',
+        scheduled_trigger_days: 4,
+        status: 'AWAITING_APPROVAL',
+      },
+      {
+        id: 'fu-demo-02',
+        original_campaign_id: 'out-01',
+        touchpoint_number: 3,
+        candidate_name: 'Adam Blansett',
+        recruiter_name: 'Marcus Vance',
+        recruiter_email: 'marcus.vance@stripe.com',
+        company_name: 'Stripe',
+        job_title: 'Staff Backend Engineer - Core Infrastructure',
+        subject: 'Re: Staff Backend Infrastructure — Adam Blansett (Architecture Note)',
+        body_markdown:
+          'Hi Marcus,\n\n' +
+          "I wanted to share one quick additional thought regarding Stripe's distributed core infrastructure roadmap. " +
+          "In similar high-scale systems, I've observed teams encounter database connection exhaustion and Kafka partition lag during transaction surges — " +
+          "challenges I've resolved in production via PgBouncer transaction-mode pooling and idempotent consumer sharding.\n\n" +
+          'If you would like to compare notes on your current engineering challenges, here are a few open windows this week:\n' +
+          '• Wednesday: 10:00 AM – 11:30 AM or 2:00 PM – 4:00 PM ET\n' +
+          '• Thursday: 11:00 AM – 1:00 PM or 3:30 PM – 5:00 PM ET\n\n' +
+          'Warmly,\n' +
+          '**Adam Blansett**',
+        scheduled_trigger_days: 9,
+        status: 'AWAITING_APPROVAL',
+      },
+    ]);
+  }
+
   if (url.includes('/api/v1/outreach') && method === 'GET') {
     return createJsonResponse(MOCK_OUTREACH_DRAFTS);
   }

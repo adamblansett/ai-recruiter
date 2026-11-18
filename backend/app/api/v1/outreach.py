@@ -163,3 +163,17 @@ async def trigger_inbox_sync():
     """Trigger an immediate check of tracked Gmail threads for recruiter responses."""
     from app.tasks.email_sync_tasks import _run_inbox_sync
     return await _run_inbox_sync()
+
+
+@router.get("/followups/rules", summary="Get Multi-Touch Cadence Rules")
+async def get_followup_rules():
+    """List defined multi-touch follow-up rules (Day 4 Gentle Nudge, Day 9 Value-Add)."""
+    from app.services.followup_sequence_service import FollowupSequenceService
+    return FollowupSequenceService.get_cadence_rules()
+
+
+@router.get("/followups/pending", summary="Evaluate Pending Multi-Touch Follow-ups")
+async def get_pending_followups(db: AsyncSession = Depends(get_db)):
+    """Evaluate sent threads and generate staged follow-up drafts awaiting human approval."""
+    from app.services.followup_sequence_service import FollowupSequenceService
+    return await FollowupSequenceService.evaluate_pending_followups(db)

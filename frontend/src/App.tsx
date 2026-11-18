@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { 
   Activity, 
   BarChart3,
+  Bell,
   Briefcase, 
+  Clock,
   Compass, 
   Database, 
   Keyboard,
@@ -18,6 +20,7 @@ import {
 } from 'lucide-react';
 import { fetchHealth, fetchStatus, SystemHealth, SystemStatus } from './api/client';
 import { useDemoMode } from './context/DemoContext';
+import { requestNotificationPermission, sendDesktopNotification } from './utils/notifications';
 import { ProfilePage } from './pages/Profile';
 import { JobsPage } from './pages/Jobs';
 import { RecruitersPage } from './pages/Recruiters';
@@ -30,6 +33,20 @@ export function App() {
   const [status, setStatus] = useState<SystemStatus | null>(null);
   const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false);
   const { isDemoMode, toggleDemoMode } = useDemoMode();
+
+  const [notificationStatus, setNotificationStatus] = useState<string>(() => {
+    return typeof Notification !== 'undefined' ? Notification.permission : 'default';
+  });
+
+  async function handleEnableNotifications() {
+    const perm = await requestNotificationPermission();
+    setNotificationStatus(perm);
+    if (perm === 'granted') {
+      sendDesktopNotification('AI Recruiter: Desktop Alerts Enabled', {
+        body: 'You will receive immediate alerts when recruiter responses, interview requests, or follow-ups occur.',
+      });
+    }
+  }
 
   // Global Keyboard Shortcuts Hook
   useEffect(() => {
@@ -210,6 +227,20 @@ export function App() {
               <kbd className="text-[10px] font-mono px-1 rounded bg-black/40 border border-slate-700">?</kbd>
             </button>
 
+            {/* Desktop Notifications Toggle */}
+            <button
+              onClick={handleEnableNotifications}
+              className={`px-2 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition border ${
+                notificationStatus === 'granted'
+                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                  : 'bg-slate-800 text-slate-400 hover:text-white border-slate-700'
+              }`}
+              title={notificationStatus === 'granted' ? 'Native Desktop Notifications Active' : 'Enable Native Desktop Notifications'}
+            >
+              <Bell className="w-3.5 h-3.5" />
+              <span>{notificationStatus === 'granted' ? 'Alerts On' : 'Alerts'}</span>
+            </button>
+
             <div className="flex items-center space-x-2 text-xs border-l border-slate-800 pl-3">
               <span className={`flex h-2 w-2 rounded-full ${isDemoMode ? 'bg-amber-400' : 'bg-emerald-400'} animate-pulse`} />
               <span className="text-slate-400 font-medium">{isDemoMode ? 'Demo Mode:' : 'FastAPI:'}</span>
@@ -246,6 +277,100 @@ export function App() {
                 </p>
               </div>
             </div>
+
+            {/* Morning Executive Pipeline Digest */}
+            <section className="p-6 rounded-2xl bg-slate-900/90 border border-indigo-500/30 space-y-4 shadow-xl">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">☀️</span>
+                  <div>
+                    <h2 className="text-lg font-bold text-white">Morning Executive Pipeline Digest</h2>
+                    <p className="text-xs text-slate-400">
+                      Priority action items, inbound threads, and cadence alerts for Adam Blansett (Staff/Senior+ Target)
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    sendDesktopNotification('AI Recruiter: Recruiter Marcus Vance from Stripe requested an interview', {
+                      body: "Let's schedule a 30-minute architecture discussion. Google Calendar availability linked.",
+                    });
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-semibold flex items-center gap-1.5 transition"
+                >
+                  <Bell className="w-3.5 h-3.5" /> Test Desktop Notification
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
+                {/* Action 1: Pending Approvals */}
+                <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 space-y-3 flex flex-col justify-between">
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <Mail className="w-4 h-4 text-indigo-400" />
+                      <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                        Action Required
+                      </span>
+                    </div>
+                    <p className="text-base font-bold text-white pt-1">4 Drafts Awaiting Sign-Off</p>
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      Custom cold intros tailored with verified STAR bullet points awaiting your human approval before dispatch.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setActiveTab('outreach')}
+                    className="w-full py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition"
+                  >
+                    Review Queue (4 Drafts) →
+                  </button>
+                </div>
+
+                {/* Action 2: Cadence Follow-ups Due */}
+                <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 space-y-3 flex flex-col justify-between">
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <Clock className="w-4 h-4 text-violet-400" />
+                      <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-violet-500/10 text-violet-400 border border-violet-500/20">
+                        Cadence Alert
+                      </span>
+                    </div>
+                    <p className="text-base font-bold text-white pt-1">2 Follow-ups Ready</p>
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      Touch 2 (Day 4 Gentle Nudge for Datadog) and Touch 3 (Day 9 Architecture Note for Stripe) ready to review.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setActiveTab('outreach')}
+                    className="w-full py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold transition"
+                  >
+                    Inspect Follow-up Cadence →
+                  </button>
+                </div>
+
+                {/* Action 3: Target Roles Pipeline */}
+                <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 space-y-3 flex flex-col justify-between">
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <Compass className="w-4 h-4 text-emerald-400" />
+                      <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        Active Pipeline
+                      </span>
+                    </div>
+                    <p className="text-base font-bold text-white pt-1">6 High-Match Roles</p>
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      100% remote Staff/Lead roles ($195k–$260k) across Stripe, Datadog, Anthropic, Scale AI, and Vercel.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setActiveTab('jobs')}
+                    className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition"
+                  >
+                    View Discovered Jobs →
+                  </button>
+                </div>
+              </div>
+            </section>
 
             {/* System Core Architecture Monitor */}
             <section className="space-y-4">

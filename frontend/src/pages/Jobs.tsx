@@ -9,10 +9,14 @@ import {
   Globe, 
   Layers,
   MessageSquare,
+  Mic,
+  MicOff,
   Plus, 
   Search, 
   Send,
   Sparkles, 
+  Volume2,
+  VolumeX,
   X, 
   AlertTriangle, 
   Cpu,
@@ -203,6 +207,8 @@ export function JobsPage() {
   const [roleplayQuestion, setRoleplayQuestion] = useState<MockInterviewQuestion | null>(null);
   const [candidateAnswer, setCandidateAnswer] = useState('');
   const [roleplayEvaluation, setRoleplayEvaluation] = useState<MockAnswerEvaluation | null>(null);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [isListeningMic, setIsListeningMic] = useState(false);
 
   // Company Dossier Modal
   const [dossierModalOpen, setDossierModalOpen] = useState(false);
@@ -404,6 +410,61 @@ export function JobsPage() {
       alert('Error evaluating interview answer.');
     } finally {
       setEvaluatingRoleplay(false);
+    }
+  }
+
+  function handleSpeakQuestion(text: string) {
+    if (!('speechSynthesis' in window)) {
+      alert('Speech synthesis is not supported in this browser.');
+      return;
+    }
+    if (isPlayingAudio) {
+      window.speechSynthesis.cancel();
+      setIsPlayingAudio(false);
+      return;
+    }
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+    utterance.onend = () => setIsPlayingAudio(false);
+    utterance.onerror = () => setIsPlayingAudio(false);
+    setIsPlayingAudio(true);
+    window.speechSynthesis.speak(utterance);
+  }
+
+  function handleToggleMic() {
+    const SpeechRecognition =
+      (window as unknown as { SpeechRecognition?: any; webkitSpeechRecognition?: any }).SpeechRecognition ||
+      (window as unknown as { SpeechRecognition?: any; webkitSpeechRecognition?: any }).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      alert('Speech recognition is not supported in this browser. Try Google Chrome or Microsoft Edge.');
+      return;
+    }
+
+    if (isListeningMic) {
+      setIsListeningMic(false);
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => setIsListeningMic(true);
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        setCandidateAnswer((prev) => (prev ? prev.trim() + ' ' + transcript : transcript));
+      };
+      recognition.onerror = () => setIsListeningMic(false);
+      recognition.onend = () => setIsListeningMic(false);
+
+      recognition.start();
+    } catch {
+      setIsListeningMic(false);
     }
   }
 
@@ -1461,13 +1522,28 @@ export function JobsPage() {
               <div className="space-y-5">
                 {/* Interviewer Persona Card */}
                 <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2">
-                  <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center justify-between text-xs flex-wrap gap-2">
                     <span className="font-bold text-pink-400 font-mono">
                       Interviewer: {roleplayQuestion.interviewer_persona}
                     </span>
-                    <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-400 text-[11px]">
-                      Round {roleplayQuestion.round_number}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleSpeakQuestion(roleplayQuestion.question)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition ${
+                          isPlayingAudio
+                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse'
+                            : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                        }`}
+                        title="Text-to-Speech: Listen to the interviewer speak this question aloud"
+                      >
+                        {isPlayingAudio ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5 text-pink-400" />}
+                        {isPlayingAudio ? 'Stop Audio' : 'Listen Aloud'}
+                      </button>
+                      <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-400 text-[11px]">
+                        Round {roleplayQuestion.round_number}
+                      </span>
+                    </div>
                   </div>
                   <p className="text-sm text-white font-medium leading-relaxed">
                     "{roleplayQuestion.question}"
@@ -1488,9 +1564,24 @@ export function JobsPage() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs">
                     <label className="font-bold text-slate-300">Your Response (Candidate Answer)</label>
-                    <span className="text-slate-500 font-mono">
-                      {candidateAnswer.trim() ? `${candidateAnswer.trim().split(/\s+/).length} words` : '0 words'}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleToggleMic}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition ${
+                          isListeningMic
+                            ? 'bg-red-500/20 text-red-400 border border-red-500/40 animate-pulse'
+                            : 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700'
+                        }`}
+                        title="Dictate your answer verbally via Speech Recognition"
+                      >
+                        {isListeningMic ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5 text-pink-400" />}
+                        {isListeningMic ? 'Listening... (Speak Now)' : 'Voice Dictate'}
+                      </button>
+                      <span className="text-slate-500 font-mono">
+                        {candidateAnswer.trim() ? `${candidateAnswer.trim().split(/\s+/).length} words` : '0 words'}
+                      </span>
+                    </div>
                   </div>
                   <textarea
                     rows={5}

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { 
   Calendar,
   CheckCircle, 
+  Clock,
   Edit3, 
   Mail, 
   Send, 
@@ -31,10 +32,26 @@ interface OutreachDraft {
   created_at: string;
 }
 
+interface GeneratedFollowup {
+  id: string;
+  original_campaign_id: string;
+  touchpoint_number: number;
+  candidate_name: string;
+  recruiter_name: string;
+  recruiter_email: string | null;
+  company_name: string;
+  job_title: string;
+  subject: string;
+  body_markdown: string;
+  scheduled_trigger_days: number;
+  status: string;
+}
+
 export function OutreachPage() {
   const [drafts, setDrafts] = useState<OutreachDraft[]>([]);
+  const [followups, setFollowups] = useState<GeneratedFollowup[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'pending' | 'sent'>('pending');
+  const [activeTab, setActiveTab] = useState<'pending' | 'sent' | 'followups'>('pending');
 
   // Edit State
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -69,8 +86,27 @@ export function OutreachPage() {
   }
 
   useEffect(() => {
-    fetchDrafts();
+    if (activeTab === 'followups') {
+      fetchFollowups();
+    } else {
+      fetchDrafts();
+    }
   }, [activeTab]);
+
+  async function fetchFollowups() {
+    try {
+      setLoading(true);
+      const res = await fetch('/api/v1/outreach/followups/pending');
+      if (res.ok) {
+        const data = await res.json();
+        setFollowups(data);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function fetchDrafts() {
     try {
@@ -198,6 +234,16 @@ export function OutreachPage() {
           >
             Dispatched Messages
           </button>
+          <button
+            onClick={() => setActiveTab('followups')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+              activeTab === 'followups'
+                ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Follow-up Sequences ({followups.length ? followups.length : 'Cadence'})
+          </button>
         </div>
 
         <button
@@ -211,8 +257,108 @@ export function OutreachPage() {
         </button>
       </div>
 
-      {/* Drafts List */}
-      {loading ? (
+      {/* Follow-ups Cadence View */}
+      {activeTab === 'followups' ? (
+        <div className="space-y-6">
+          {/* Cadence Rules Information Box */}
+          <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <Clock className="w-4 h-4 text-indigo-400" /> Multi-Touch Follow-up Cadence Rules
+              </h3>
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-semibold border border-emerald-500/20">
+                100% Human Approval Gated
+              </span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+              <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
+                <span className="font-bold text-indigo-300">Touch 2 (Day 4 Gentle Nudge)</span>
+                <p className="text-slate-400 leading-relaxed">
+                  Triggered after 4 days of no reply. Sends a polite, concise follow-up confirming receipt and inquiring about open calendar availability.
+                </p>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1">
+                <span className="font-bold text-violet-300">Touch 3 (Day 9 Architectural Value-Add)</span>
+                <p className="text-slate-400 leading-relaxed">
+                  Triggered after 9 days. Offers concrete distributed systems architectural insight relevant to their stack and injects live Google Calendar slots.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Pending Follow-ups List */}
+          {loading ? (
+            <div className="p-12 text-center text-slate-400">Evaluating follow-up cadence...</div>
+          ) : followups.length === 0 ? (
+            <div className="p-16 rounded-2xl bg-slate-900/50 border border-slate-800 text-center space-y-3">
+              <Clock className="w-10 h-10 text-slate-600 mx-auto" />
+              <h3 className="text-lg font-semibold text-white">No follow-ups due at this time</h3>
+              <p className="text-xs text-slate-400 max-w-md mx-auto">
+                Follow-ups are automatically prepared when 4+ days have passed since an initial outreach without an inbound reply.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {followups.map((fu) => (
+                <div
+                  key={fu.id}
+                  className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4 shadow-xl"
+                >
+                  <div className="flex items-start justify-between flex-wrap gap-2">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <User className="w-4 h-4 text-indigo-400" />
+                        <span className="font-bold text-white text-base">{fu.recruiter_name}</span>
+                        <span className="text-xs text-slate-400 font-mono">({fu.recruiter_email || 'Verified Email'})</span>
+                      </div>
+                      <p className="text-xs text-indigo-300 font-medium">
+                        Target Role: {fu.job_title} at {fu.company_name}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono px-2.5 py-1 rounded font-bold bg-violet-500/10 text-violet-400 border border-violet-500/20">
+                        Touch {fu.touchpoint_number} • Day {fu.scheduled_trigger_days} Follow-Up
+                      </span>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                        Awaiting Approval
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2">
+                    <p className="text-xs font-semibold text-slate-300 font-mono">Subject: {fu.subject}</p>
+                    <p className="text-xs text-slate-300 whitespace-pre-wrap leading-relaxed font-sans border-t border-slate-800/60 pt-2">
+                      {fu.body_markdown}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 text-xs">
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(fu.body_markdown);
+                        setToastMsg('Follow-up copy copied to clipboard!');
+                        setTimeout(() => setToastMsg(null), 3000);
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center gap-1.5 transition"
+                    >
+                      <Copy className="w-3.5 h-3.5" /> Copy Draft
+                    </button>
+                    <button
+                      onClick={() => {
+                        alert(`Approved Touch ${fu.touchpoint_number} follow-up for ${fu.recruiter_name}! Draft queued in Gmail.`);
+                        setFollowups(prev => prev.filter(f => f.id !== fu.id));
+                      }}
+                      className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold flex items-center gap-1.5 shadow-lg shadow-emerald-600/20 transition"
+                    >
+                      <Send className="w-3.5 h-3.5" /> Approve & Dispatch Follow-Up
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : loading ? (
         <div className="p-12 text-center text-slate-400">Loading outreach queue...</div>
       ) : drafts.length === 0 ? (
         <div className="p-16 rounded-2xl bg-slate-900/50 border border-slate-800 text-center space-y-3">
