@@ -211,3 +211,14 @@ async def get_google_calendar_availability(db: AsyncSession = Depends(get_db)):
     """Retrieve synchronized weekly open slots for interview scheduling."""
     from app.services.calendar_service import CalendarService
     return await CalendarService.get_weekly_availability(db)
+
+
+@router.post("/calendar/resolve-conflicts", summary="Check Interview Slot Conflicts and Resolve Open Times")
+async def resolve_calendar_conflicts(payload: dict):
+    """
+    Evaluates proposed interview time against candidate calendar blocks;
+    detects conflicts and automatically formats alternative open slots.
+    """
+    from app.services.calendar_service import CalendarConflictRequest, CalendarService
+    req = CalendarConflictRequest(**payload)
+    return CalendarService.resolve_conflicts(req)

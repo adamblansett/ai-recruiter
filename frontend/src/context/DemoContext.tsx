@@ -533,6 +533,62 @@ function handleMockResponse(url: string, init?: RequestInit): Promise<Response> 
     });
   }
 
+  // 7c. Offline Local Accelerated Vector Search
+  if (url.includes('/api/v1/jobs/vector-search')) {
+    let payload: any = {};
+    try {
+      if (init?.body) payload = JSON.parse(init.body as string);
+    } catch {}
+    const query = (payload.query || '').toLowerCase();
+    const matches = MOCK_JOBS.filter((j) =>
+      j.title.toLowerCase().includes(query) ||
+      (j.company_name && j.company_name.toLowerCase().includes(query)) ||
+      (j.raw_description && j.raw_description.toLowerCase().includes(query))
+    );
+    const results = (matches.length ? matches : MOCK_JOBS.slice(0, 3)).map((j) => ({
+      doc_id: j.id,
+      title: `${j.company_name} — ${j.title}`,
+      snippet: j.raw_description ? j.raw_description.slice(0, 180) + '...' : 'Staff-level backend and distributed systems engineering role.',
+      similarity_score: 0.942,
+      match_percentage: '94.2%',
+      metadata: { min_salary: j.min_salary, location: j.location, source: j.source_adapter },
+    }));
+    return createJsonResponse({
+      query: payload.query || 'Distributed Systems',
+      results_count: results.length,
+      latency_ms: 2.84,
+      results,
+    });
+  }
+
+  // 7d. Calendar Conflict Resolver
+  if (url.includes('/calendar/resolve-conflicts')) {
+    let payload: any = {};
+    try {
+      if (init?.body) payload = JSON.parse(init.body as string);
+    } catch {}
+    const propTime = (payload.proposed_time || '09:30 AM').toUpperCase();
+    const isConflict = propTime.includes('9:') || propTime.includes('12:') || propTime.includes('4:');
+    const reason = isConflict
+      ? 'Conflicts with Daily Architecture Standup (9:00 AM – 10:00 AM EST) or reserved focus block.'
+      : null;
+    const slots = [
+      { date_label: 'Tuesday, Nov 24', start_time: '1:00 PM', end_time: '4:30 PM', timezone: 'EST', slot_type: 'FREE' },
+      { date_label: 'Thursday, Nov 26', start_time: '10:00 AM', end_time: '12:00 PM', timezone: 'EST', slot_type: 'FREE' },
+      { date_label: 'Thursday, Nov 26', start_time: '1:30 PM', end_time: '4:00 PM', timezone: 'EST', slot_type: 'FREE' },
+    ];
+    return createJsonResponse({
+      has_conflict: isConflict,
+      conflict_reason: reason,
+      proposed_time_slot: `${payload.proposed_date || '2026-11-20'} at ${payload.proposed_time || '09:30 AM'} EST`,
+      recommended_alternative_slots: slots,
+      email_response_snippet: isConflict
+        ? `Hi ${payload.recruiter_name || 'Recruiter'},\n\nThank you for reaching out! Unfortunately, I have an existing conflict at ${payload.proposed_time || '9:30 AM'} EST on ${payload.proposed_date || 'this date'}. Could we connect during any of these alternative windows instead?\n\n• Tuesday, Nov 24: 1:00 PM – 4:30 PM EST\n• Thursday, Nov 26: 10:00 AM – 12:00 PM EST\n• Thursday, Nov 26: 1:30 PM – 4:00 PM EST\n\nLooking forward to speaking!\n\nBest regards,\nAdam Blansett\nadam.blansett@gmail.com | +1-555-019-2834`
+        : `Hi ${payload.recruiter_name || 'Recruiter'},\n\nThank you for reaching out! ${payload.proposed_date || '2026-11-20'} at ${payload.proposed_time || '02:00 PM'} EST works perfectly on my end. I have marked this on my calendar and look forward to speaking.\n\nBest regards,\nAdam Blansett\nadam.blansett@gmail.com | +1-555-019-2834`,
+      candidate_timezone: 'EST',
+    });
+  }
+
   // 8. Jobs List & Discovery
   if (url.includes('/api/v1/jobs/discover')) {
     return createJsonResponse({

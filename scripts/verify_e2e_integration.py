@@ -52,6 +52,10 @@ class VerificationRunner:
         self.verify_executive_pitch_deck()
         self.verify_system_design_whiteboard_specs()
         self.verify_security_hardening()
+        self.verify_vector_cache_acceleration()
+        self.verify_calendar_conflict_resolver()
+        self.verify_weekly_executive_digest()
+        self.verify_coding_sandbox_specs()
 
         elapsed = time.time() - self.start_time
         total_tests = len(self.results)
@@ -346,6 +350,132 @@ class VerificationRunner:
                 "jwt_claims_and_revocation_verified": jwt_claims_ok and revocation_ok,
                 "open_redirect_guards_verified": redirect_guards_ok,
                 "frontend_security_meta_tags": frontend_headers_ok,
+            },
+        )
+
+    def verify_vector_cache_acceleration(self):
+        sys.path.insert(0, os.path.join(ROOT_DIR, "backend", "app", "services"))
+        import vector_cache_service
+        service = vector_cache_service.VectorCacheService
+        bench = service.benchmark(50)
+        search_res = service.search("Kafka event streaming Python microservices", top_k=3)
+
+        passed = (
+            bench["sub_5ms_achieved"]
+            and search_res["results_count"] > 0
+            and search_res["latency_ms"] < 10.0
+        )
+        self.record(
+            "Offline Local Vector Search Acceleration (<5ms)",
+            passed,
+            {
+                "benchmark_latency_ms": bench["benchmark_latency_ms"],
+                "sub_5ms_achieved": bench["sub_5ms_achieved"],
+                "search_results_count": search_res["results_count"],
+                "search_latency_ms": search_res["latency_ms"],
+            },
+        )
+
+    def verify_calendar_conflict_resolver(self):
+        sys.path.insert(0, os.path.join(ROOT_DIR, "backend", "app", "services"))
+        import calendar_service
+        service = calendar_service.CalendarService
+
+        req_conflict = calendar_service.CalendarConflictRequest(
+            proposed_date="2026-11-20",
+            proposed_time="09:30 AM",
+            company_name="Datadog",
+        )
+        res_conflict = service.resolve_conflicts(req_conflict)
+
+        req_free = calendar_service.CalendarConflictRequest(
+            proposed_date="2026-11-20",
+            proposed_time="02:00 PM",
+            company_name="Datadog",
+        )
+        res_free = service.resolve_conflicts(req_free)
+
+        passed = (
+            res_conflict.has_conflict
+            and not res_free.has_conflict
+            and len(res_conflict.recommended_alternative_slots) >= 3
+            and "Conflict" in res_conflict.conflict_reason
+        )
+        self.record(
+            "Multi-Calendar Conflict Resolver & Scheduling Assistant",
+            passed,
+            {
+                "conflict_detected_correctly": res_conflict.has_conflict,
+                "conflict_reason": res_conflict.conflict_reason,
+                "free_slot_confirmed_correctly": not res_free.has_conflict,
+                "alternative_slots_generated": len(res_conflict.recommended_alternative_slots),
+            },
+        )
+
+    def verify_weekly_executive_digest(self):
+        sys.path.insert(0, os.path.join(ROOT_DIR, "scripts"))
+        import weekly_executive_digest
+        weekly_executive_digest.run_now()
+
+        json_path = os.path.join(DATA_DIR, "weekly_executive_digest.json")
+        md_path = os.path.join(DATA_DIR, "weekly_executive_digest.md")
+        html_path = os.path.join(DATA_DIR, "weekly_executive_digest.html")
+
+        all_exist = (
+            os.path.exists(json_path)
+            and os.path.exists(md_path)
+            and os.path.exists(html_path)
+        )
+
+        with open(json_path, "r", encoding="utf-8") as f:
+            digest = json.load(f)
+
+        passed = (
+            all_exist
+            and digest.get("candidate") == "Adam Blansett"
+            and digest.get("funnel_summary", {}).get("total_tracked", 0) > 0
+        )
+        self.record(
+            "Weekly Executive Pipeline Digest Daemon",
+            passed,
+            {
+                "json_artifact_created": os.path.exists(json_path),
+                "markdown_artifact_created": os.path.exists(md_path),
+                "html_dashboard_created": os.path.exists(html_path),
+                "tracked_roles": digest.get("funnel_summary", {}).get("total_tracked", 0),
+            },
+        )
+
+    def verify_coding_sandbox_specs(self):
+        jobs_path = os.path.join(ROOT_DIR, "frontend", "src", "pages", "Jobs.tsx")
+        with open(jobs_path, "r", encoding="utf-8") as f:
+            jobs_src = f.read()
+
+        has_coding_modal = "codingModalOpen" in jobs_src
+        has_rate_limiter = "rate_limiter" in jobs_src
+        has_lru_cache = "lru_cache" in jobs_src
+        has_idempotent_worker = "idempotent_worker" in jobs_src
+        has_schedule_modal = "scheduleModalOpen" in jobs_src
+        has_vector_search = "vectorSearchQuery" in jobs_src
+
+        passed = (
+            has_coding_modal
+            and has_rate_limiter
+            and has_lru_cache
+            and has_idempotent_worker
+            and has_schedule_modal
+            and has_vector_search
+        )
+        self.record(
+            "Live Coding REPL & Scheduling Studio Integration",
+            passed,
+            {
+                "coding_modal_present": has_coding_modal,
+                "rate_limiter_present": has_rate_limiter,
+                "lru_cache_present": has_lru_cache,
+                "idempotent_worker_present": has_idempotent_worker,
+                "schedule_modal_present": has_schedule_modal,
+                "vector_search_bar_present": has_vector_search,
             },
         )
 

@@ -365,3 +365,23 @@ async def submit_autofill_application(
         application_url=url,
     )
     return ApplicationAutofillService.submit_application(preview, payload)
+
+
+class VectorSearchPayload(BaseModel):
+    query: str = Field(..., min_length=2, description="Semantic search query")
+    top_k: int = Field(5, ge=1, le=20)
+    threshold: float = Field(0.4, ge=0.0, le=1.0)
+
+
+@router.post("/vector-search", summary="Offline Accelerated Semantic Vector Search")
+async def perform_vector_search(payload: VectorSearchPayload):
+    """
+    Sub-5ms local vector similarity search across job descriptions, architectural requirements,
+    and candidate background without external cloud calls.
+    """
+    from app.services.vector_cache_service import VectorCacheService
+    return VectorCacheService.search(
+        query=payload.query,
+        top_k=payload.top_k,
+        threshold=payload.threshold,
+    )
