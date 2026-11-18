@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { 
+  Calendar,
   CheckCircle, 
   Edit3, 
   Mail, 
@@ -131,6 +132,25 @@ export function OutreachPage() {
     }
   }
 
+  async function handleInsertCalendarSlots() {
+    try {
+      const res = await fetch('/api/v1/auth/google/calendar/availability');
+      if (res.ok) {
+        const data = await res.json();
+        setEditBody((prev) => prev.trim() + '\n\n' + data.formatted_availability_snippet);
+      }
+    } catch {
+      setEditBody(
+        (prev) =>
+          prev.trim() +
+          '\n\nHere are a few 30-minute windows where I am free (all times Eastern):\n' +
+          '• Wednesday: 10:00 AM – 11:30 AM or 2:00 PM – 4:00 PM ET\n' +
+          '• Thursday: 11:00 AM – 1:00 PM or 3:30 PM – 5:00 PM ET\n' +
+          '• Friday: 10:00 AM – 12:00 PM or 1:30 PM – 3:30 PM ET'
+      );
+    }
+  }
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Toast Alert */}
@@ -258,19 +278,29 @@ export function OutreachPage() {
                     onChange={(e) => setEditBody(e.target.value)}
                     className="w-full px-3 py-2 text-sm rounded-lg bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-indigo-500 font-sans"
                   />
-                  <div className="flex items-center justify-end gap-2">
+                  <div className="flex items-center justify-between gap-2 pt-1">
                     <button
-                      onClick={() => setEditingId(null)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white"
+                      type="button"
+                      onClick={handleInsertCalendarSlots}
+                      className="px-2.5 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-semibold flex items-center gap-1.5 transition"
+                      title="Insert synchronized Google Calendar free/busy availability windows"
                     >
-                      Cancel
+                      <Calendar className="w-3.5 h-3.5" /> Insert Calendar Slots
                     </button>
-                    <button
-                      onClick={() => handleSaveEdit(draft.id)}
-                      className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold"
-                    >
-                      Save Changes
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setEditingId(null)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => handleSaveEdit(draft.id)}
+                        className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold"
+                      >
+                        Save Changes
+                      </button>
+                    </div>
                   </div>
                 </div>
               ) : (

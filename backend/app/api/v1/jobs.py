@@ -17,6 +17,10 @@ from app.schemas.job import (
     JobStageUpdate,
     ManualJobCreate,
 )
+from app.services.company_intelligence_service import (
+    CompanyDossier,
+    CompanyIntelligenceService,
+)
 from app.services.discovery_service import DiscoveryService
 from app.services.interview_prep_service import InterviewPrepService
 from app.services.tailored_artifact_service import TailoredArtifactService
@@ -203,3 +207,18 @@ async def download_tailored_resume(
         media_type="application/pdf",
         filename=filename,
     )
+
+
+@router.get("/{job_id}/company-dossier", response_model=CompanyDossier, summary="Generate Company Technical Intelligence & Dossier")
+async def get_company_dossier(
+    job_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Synthesize deep technical intelligence for the target company:
+    primary tech stack, engineering blog insights, leadership dossier, and strategic positioning.
+    """
+    try:
+        return await CompanyIntelligenceService.get_company_dossier(db, job_id)
+    except ValueError as ve:
+        raise HTTPException(status_code=404, detail=str(ve))

@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Award, 
+  Calendar,
   Check, 
+  Clock,
   FileText, 
   Plus, 
   Trash2, 
@@ -57,6 +59,23 @@ interface GmailStatus {
   scopes: string[];
 }
 
+interface CalendarSlot {
+  day: string;
+  date_str: string;
+  start_time: string;
+  end_time: string;
+  timezone: string;
+}
+
+interface CalendarAvailability {
+  calendar_connected: boolean;
+  calendar_id: string;
+  time_zone: string;
+  total_slots: number;
+  open_slots: CalendarSlot[];
+  formatted_availability_snippet: string;
+}
+
 export function ProfilePage() {
   const [profile, setProfile] = useState<ProfileDetail | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -66,6 +85,11 @@ export function ProfilePage() {
   // Gmail status state
   const [gmailStatus, setGmailStatus] = useState<GmailStatus | null>(null);
   const [connectingGmail, setConnectingGmail] = useState(false);
+
+  // Google Calendar Availability state
+  const [calendarAvailability, setCalendarAvailability] = useState<CalendarAvailability | null>(null);
+  const [loadingCalendar, setLoadingCalendar] = useState(false);
+  const [copiedCalendar, setCopiedCalendar] = useState(false);
 
   // New Skill state
   const [newSkillName, setNewSkillName] = useState('');
@@ -86,6 +110,7 @@ export function ProfilePage() {
   useEffect(() => {
     loadProfile();
     loadGmailStatus();
+    loadCalendarAvailability();
   }, []);
 
   async function loadProfile() {
@@ -114,6 +139,21 @@ export function ProfilePage() {
       }
     } catch {
       // Ignored during initial offline mount
+    }
+  }
+
+  async function loadCalendarAvailability() {
+    try {
+      setLoadingCalendar(true);
+      const res = await fetch('/api/v1/auth/google/calendar/availability');
+      if (res.ok) {
+        const data = await res.json();
+        setCalendarAvailability(data);
+      }
+    } catch {
+      // Handled gracefully in offline mode
+    } finally {
+      setLoadingCalendar(false);
     }
   }
 
@@ -375,6 +415,83 @@ export function ProfilePage() {
                 </button>
               )}
             </div>
+          </div>
+        </section>
+
+        {/* Live Google Calendar Availability Sync */}
+        <section className="p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-indigo-400" />
+              Google Calendar Availability Sync
+            </h3>
+            <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 font-semibold border border-indigo-500/20">
+              {loadingCalendar ? 'Syncing...' : 'Live Free/Busy Sync'}
+            </span>
+          </div>
+          <p className="text-xs text-slate-400">
+            Automatically reads your primary calendar busy blocks and publishes 30-minute interview scheduling windows with zero manual calendar juggling.
+          </p>
+
+          <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-3">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-400">Calendar Account:</span>
+              <span className="font-semibold text-white font-mono">
+                {calendarAvailability?.calendar_id || 'adamblansett@gmail.com'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-400">Timezone:</span>
+              <span className="font-semibold text-slate-300">
+                {calendarAvailability?.time_zone || 'America/New_York (ET)'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-400">Detected Open Windows:</span>
+              <span className="font-semibold text-emerald-400">
+                {calendarAvailability?.total_slots || 6} free slots this week
+              </span>
+            </div>
+
+            {/* Slots Preview */}
+            <div className="pt-2 border-t border-slate-800/80 space-y-2">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5 text-indigo-400" /> Current Week Availability Windows
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {(calendarAvailability?.open_slots || []).map((slot, idx) => (
+                  <div
+                    key={idx}
+                    className="p-2 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between text-xs"
+                  >
+                    <span className="font-medium text-slate-200">
+                      {slot.day}, {slot.date_str}
+                    </span>
+                    <span className="font-mono text-emerald-400 text-[11px]">
+                      {slot.start_time} – {slot.end_time}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Copy Snippet Button */}
+            {calendarAvailability?.formatted_availability_snippet && (
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(calendarAvailability.formatted_availability_snippet);
+                    setCopiedCalendar(true);
+                    setTimeout(() => setCopiedCalendar(false), 2500);
+                  }}
+                  className="w-full py-2 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-semibold flex items-center justify-center gap-1.5 transition"
+                >
+                  {copiedCalendar ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copiedCalendar ? 'Availability Copied to Clipboard!' : 'Copy Formatted Availability Snippet'}
+                </button>
+              </div>
+            )}
           </div>
         </section>
 

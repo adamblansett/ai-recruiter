@@ -2,10 +2,12 @@ import { useState, useEffect, type FormEvent } from 'react';
 import { 
   Award, 
   Briefcase, 
+  Building2,
   CheckCircle2, 
   Compass, 
   ExternalLink, 
   Globe, 
+  Layers,
   Plus, 
   Search, 
   Sparkles, 
@@ -137,11 +139,36 @@ interface OfferEvaluationResult {
   talking_points_phone: string[];
 }
 
+interface CompanyLeadership {
+  name: string;
+  role: string;
+  background: string;
+}
+
+interface CompanyDossier {
+  job_id: string;
+  company_name: string;
+  domain: string | null;
+  industry: string;
+  funding_stage: string;
+  engineering_scale: string;
+  primary_tech_stack: string[];
+  engineering_blog_highlights: string[];
+  interview_process_notes: string;
+  leadership: CompanyLeadership[];
+  strategic_candidate_positioning: string;
+}
+
 export function JobsPage() {
   const [jobs, setJobs] = useState<JobOpportunity[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [discovering, setDiscovering] = useState<boolean>(false);
   const [discoveryMsg, setDiscoveryMsg] = useState<string | null>(null);
+
+  // Company Dossier Modal
+  const [dossierModalOpen, setDossierModalOpen] = useState(false);
+  const [loadingDossier, setLoadingDossier] = useState(false);
+  const [activeDossier, setActiveDossier] = useState<CompanyDossier | null>(null);
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -276,6 +303,22 @@ export function JobsPage() {
       setPrepModalOpen(false);
     } finally {
       setLoadingPrep(false);
+    }
+  }
+
+  async function handleOpenCompanyDossier(job: JobOpportunity) {
+    try {
+      setLoadingDossier(true);
+      setDossierModalOpen(true);
+      const res = await fetch(`/api/v1/jobs/${job.id}/company-dossier`);
+      if (!res.ok) throw new Error('Failed to load company dossier');
+      const data: CompanyDossier = await res.json();
+      setActiveDossier(data);
+    } catch {
+      alert('Failed to synthesize company dossier.');
+      setDossierModalOpen(false);
+    } finally {
+      setLoadingDossier(false);
     }
   }
 
@@ -541,6 +584,13 @@ export function JobsPage() {
                   </a>
 
                   <div className="flex items-center gap-1.5 flex-wrap">
+                    <button
+                      onClick={() => handleOpenCompanyDossier(job)}
+                      className="px-2.5 py-1 rounded-lg bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 border border-sky-500/30 text-xs font-semibold flex items-center gap-1 transition"
+                      title="Company Technical Intelligence, Architecture & Leadership Dossier"
+                    >
+                      <Building2 className="w-3.5 h-3.5" /> Dossier
+                    </button>
                     <button
                       onClick={() => handleOpenInterviewPrep(job)}
                       className="px-2.5 py-1 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-semibold flex items-center gap-1 transition"
@@ -1112,6 +1162,130 @@ export function JobsPage() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Company Technical Intelligence & Dossier Modal */}
+      {dossierModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-sky-500/30 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center space-x-3">
+                <div className="p-2.5 rounded-xl bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                  <Building2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    {activeDossier?.company_name || 'Target Company'} Technical Dossier
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Architectural profile, engineering scale, tech stack & leadership intelligence
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setDossierModalOpen(false)}
+                className="text-slate-500 hover:text-white transition p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {loadingDossier ? (
+              <div className="py-12 flex flex-col items-center justify-center space-y-3">
+                <Cpu className="w-8 h-8 text-sky-400 animate-spin" />
+                <p className="text-sm text-slate-400">Synthesizing deep technical intelligence & leadership dossier...</p>
+              </div>
+            ) : activeDossier ? (
+              <div className="space-y-5">
+                {/* Meta Badges */}
+                <div className="flex flex-wrap gap-2 text-xs">
+                  <span className="px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700 font-medium">
+                    {activeDossier.industry}
+                  </span>
+                  <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
+                    {activeDossier.funding_stage}
+                  </span>
+                  <span className="px-2.5 py-1 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20 font-medium">
+                    {activeDossier.engineering_scale}
+                  </span>
+                  {activeDossier.domain && (
+                    <span className="px-2.5 py-1 rounded-full bg-slate-800 text-indigo-400 border border-slate-700 font-mono">
+                      {activeDossier.domain}
+                    </span>
+                  )}
+                </div>
+
+                {/* Primary Tech Stack */}
+                <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2">
+                  <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <Layers className="w-4 h-4 text-sky-400" /> Primary Tech Stack & Systems Architecture
+                  </h4>
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {activeDossier.primary_tech_stack.map((tech, idx) => (
+                      <span
+                        key={idx}
+                        className="px-2.5 py-1 rounded-lg bg-sky-950/60 border border-sky-500/30 text-sky-300 text-xs font-mono font-medium"
+                      >
+                        {tech}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Engineering Blog Highlights */}
+                <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2">
+                  <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <BookOpen className="w-4 h-4 text-indigo-400" /> Engineering Publications & Architecture Focus
+                  </h4>
+                  <ul className="space-y-1.5 pt-1 text-xs text-slate-300">
+                    {activeDossier.engineering_blog_highlights.map((highlight, idx) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <span className="text-sky-400 mt-0.5">•</span>
+                        <span>{highlight}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Leadership Dossier */}
+                <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 space-y-3">
+                  <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <Award className="w-4 h-4 text-violet-400" /> Engineering Leadership Dossier
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {activeDossier.leadership.map((leader, idx) => (
+                      <div key={idx} className="p-3 rounded-lg bg-slate-900 border border-slate-800 space-y-1">
+                        <p className="text-xs font-bold text-white">{leader.name}</p>
+                        <p className="text-[11px] font-semibold text-sky-400">{leader.role}</p>
+                        <p className="text-[11px] text-slate-400 leading-relaxed">{leader.background}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Interview Process Notes */}
+                <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1.5">
+                  <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <Briefcase className="w-4 h-4 text-emerald-400" /> Interview Process & Engineering Culture
+                  </h4>
+                  <p className="text-xs text-slate-300 leading-relaxed pt-1">
+                    {activeDossier.interview_process_notes}
+                  </p>
+                </div>
+
+                {/* Strategic Candidate Positioning */}
+                <div className="p-4 rounded-xl bg-gradient-to-br from-indigo-950/60 to-violet-950/40 border border-indigo-500/40 space-y-2">
+                  <h4 className="text-xs font-bold text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-indigo-400" /> Candidate Strategic Leverage (Adam Blansett)
+                  </h4>
+                  <p className="text-xs text-slate-200 leading-relaxed">
+                    {activeDossier.strategic_candidate_positioning}
+                  </p>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       )}

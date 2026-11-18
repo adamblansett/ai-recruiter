@@ -22,6 +22,7 @@ GMAIL_SCOPES = [
     "https://www.googleapis.com/auth/gmail.send",
     "https://www.googleapis.com/auth/gmail.readonly",
     "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/calendar.events.readonly",
 ]
 
 
@@ -192,3 +193,10 @@ async def disconnect_google(db: AsyncSession = Depends(get_db)):
         c.is_active = False
     await db.commit()
     return {"status": "success", "message": "Google Gmail integration disconnected"}
+
+
+@router.get("/calendar/availability", summary="Get Google Calendar Availability for Interview Replies")
+async def get_google_calendar_availability(db: AsyncSession = Depends(get_db)):
+    """Retrieve synchronized weekly open slots for interview scheduling."""
+    from app.services.calendar_service import CalendarService
+    return await CalendarService.get_weekly_availability(db)

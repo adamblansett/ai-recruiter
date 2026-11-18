@@ -5,6 +5,7 @@ import {
   Briefcase, 
   Compass, 
   Database, 
+  Keyboard,
   Mail, 
   Radio, 
   Search, 
@@ -12,9 +13,11 @@ import {
   ShieldCheck, 
   Sparkles, 
   User, 
-  Users 
+  Users,
+  X
 } from 'lucide-react';
 import { fetchHealth, fetchStatus, SystemHealth, SystemStatus } from './api/client';
+import { useDemoMode } from './context/DemoContext';
 import { ProfilePage } from './pages/Profile';
 import { JobsPage } from './pages/Jobs';
 import { RecruitersPage } from './pages/Recruiters';
@@ -25,6 +28,47 @@ export function App() {
   const [activeTab, setActiveTab] = useState<'overview' | 'jobs' | 'recruiters' | 'outreach' | 'profile' | 'analytics'>('overview');
   const [health, setHealth] = useState<SystemHealth | null>(null);
   const [status, setStatus] = useState<SystemStatus | null>(null);
+  const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false);
+  const { isDemoMode, toggleDemoMode } = useDemoMode();
+
+  // Global Keyboard Shortcuts Hook
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      if (e.key === '1') {
+        setActiveTab('overview');
+      } else if (e.key === '2') {
+        setActiveTab('jobs');
+      } else if (e.key === '3') {
+        setActiveTab('recruiters');
+      } else if (e.key === '4') {
+        setActiveTab('outreach');
+      } else if (e.key === '5') {
+        setActiveTab('profile');
+      } else if (e.key === '6') {
+        setActiveTab('analytics');
+      } else if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+        setShortcutsModalOpen((prev) => !prev);
+      } else if (e.key === 'd' || e.key === 'D') {
+        toggleDemoMode();
+      } else if (e.key === 'Escape') {
+        setShortcutsModalOpen(false);
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [toggleDemoMode]);
 
   useEffect(() => {
     async function loadSystemInfo() {
@@ -81,6 +125,7 @@ export function App() {
                 }`}
               >
                 <Activity className="w-4 h-4" /> System Overview
+                <kbd className="ml-1 text-[10px] font-mono px-1 rounded bg-slate-900 border border-slate-700/80 text-slate-400">1</kbd>
               </button>
               <button
                 onClick={() => setActiveTab('jobs')}
@@ -91,6 +136,7 @@ export function App() {
                 }`}
               >
                 <Compass className="w-4 h-4" /> Jobs & Pipeline
+                <kbd className="ml-1 text-[10px] font-mono px-1 rounded bg-slate-900 border border-slate-700/80 text-slate-400">2</kbd>
               </button>
               <button
                 onClick={() => setActiveTab('recruiters')}
@@ -101,6 +147,7 @@ export function App() {
                 }`}
               >
                 <Users className="w-4 h-4" /> Recruiters & Contacts
+                <kbd className="ml-1 text-[10px] font-mono px-1 rounded bg-slate-900 border border-slate-700/80 text-slate-400">3</kbd>
               </button>
               <button
                 onClick={() => setActiveTab('outreach')}
@@ -111,6 +158,7 @@ export function App() {
                 }`}
               >
                 <Mail className="w-4 h-4" /> Outreach & Approvals
+                <kbd className="ml-1 text-[10px] font-mono px-1 rounded bg-slate-900 border border-slate-700/80 text-slate-400">4</kbd>
               </button>
               <button
                 onClick={() => setActiveTab('profile')}
@@ -121,6 +169,7 @@ export function App() {
                 }`}
               >
                 <User className="w-4 h-4" /> Candidate Profile
+                <kbd className="ml-1 text-[10px] font-mono px-1 rounded bg-slate-900 border border-slate-700/80 text-slate-400">5</kbd>
               </button>
               <button
                 onClick={() => setActiveTab('analytics')}
@@ -131,15 +180,42 @@ export function App() {
                 }`}
               >
                 <BarChart3 className="w-4 h-4" /> Funnel Analytics
+                <kbd className="ml-1 text-[10px] font-mono px-1 rounded bg-slate-900 border border-slate-700/80 text-slate-400">6</kbd>
               </button>
             </nav>
           </div>
 
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2 text-xs">
-              <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-slate-400 font-medium">FastAPI Backend:</span>
-              <span className="text-emerald-400 font-semibold">{health ? health.status : 'Connecting...'}</span>
+          <div className="flex items-center space-x-3">
+            {/* Demo Mode Toggle */}
+            <button
+              onClick={toggleDemoMode}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition border ${
+                isDemoMode
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-sm shadow-amber-500/10'
+                  : 'bg-slate-800/80 text-slate-400 hover:text-white border-slate-700'
+              }`}
+              title="Toggle Interactive Offline Demo / Mock Mode (D)"
+            >
+              <span>🎮 Demo: {isDemoMode ? 'ON' : 'OFF'}</span>
+              <kbd className="text-[10px] font-mono px-1 rounded bg-black/40 border border-current">D</kbd>
+            </button>
+
+            {/* Shortcuts Cheatsheet Trigger */}
+            <button
+              onClick={() => setShortcutsModalOpen(true)}
+              className="px-2 py-1 rounded-lg text-slate-400 hover:text-white bg-slate-800/80 hover:bg-slate-800 border border-slate-700 transition flex items-center gap-1 text-xs"
+              title="View Keyboard Shortcuts (?)"
+            >
+              <Keyboard className="w-3.5 h-3.5" />
+              <kbd className="text-[10px] font-mono px-1 rounded bg-black/40 border border-slate-700">?</kbd>
+            </button>
+
+            <div className="flex items-center space-x-2 text-xs border-l border-slate-800 pl-3">
+              <span className={`flex h-2 w-2 rounded-full ${isDemoMode ? 'bg-amber-400' : 'bg-emerald-400'} animate-pulse`} />
+              <span className="text-slate-400 font-medium">{isDemoMode ? 'Demo Mode:' : 'FastAPI:'}</span>
+              <span className={`font-semibold ${isDemoMode ? 'text-amber-400' : 'text-emerald-400'}`}>
+                {isDemoMode ? 'Simulated' : (health ? health.status : 'Connecting...')}
+              </span>
             </div>
           </div>
         </div>
@@ -324,6 +400,87 @@ export function App() {
       <footer className="border-t border-slate-800 py-6 text-center text-xs text-slate-500">
         AI Recruiter Platform • Candidate: Adam Blansett • Built-in Local AI & Python FastAPI Architecture
       </footer>
+
+      {/* Keyboard Shortcuts Cheatsheet Modal */}
+      {shortcutsModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-indigo-500/30 rounded-2xl max-w-lg w-full p-6 space-y-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center space-x-2.5">
+                <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                  <Keyboard className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Keyboard Shortcuts & Power Workflow</h3>
+                  <p className="text-xs text-slate-400">Navigate and execute actions instantly with hotkeys</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShortcutsModalOpen(false)}
+                className="text-slate-500 hover:text-white transition p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              {/* Tab Navigation */}
+              <div className="space-y-2">
+                <span className="font-bold text-slate-300 uppercase tracking-wider text-[11px]">Tab Navigation</span>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="p-2 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between">
+                    <span className="text-slate-300">System Overview</span>
+                    <kbd className="font-mono font-bold px-2 py-0.5 rounded bg-slate-800 text-indigo-400 border border-slate-700">1</kbd>
+                  </div>
+                  <div className="p-2 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between">
+                    <span className="text-slate-300">Jobs & Pipeline</span>
+                    <kbd className="font-mono font-bold px-2 py-0.5 rounded bg-slate-800 text-indigo-400 border border-slate-700">2</kbd>
+                  </div>
+                  <div className="p-2 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between">
+                    <span className="text-slate-300">Recruiters & Contacts</span>
+                    <kbd className="font-mono font-bold px-2 py-0.5 rounded bg-slate-800 text-indigo-400 border border-slate-700">3</kbd>
+                  </div>
+                  <div className="p-2 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between">
+                    <span className="text-slate-300">Outreach & Approvals</span>
+                    <kbd className="font-mono font-bold px-2 py-0.5 rounded bg-slate-800 text-indigo-400 border border-slate-700">4</kbd>
+                  </div>
+                  <div className="p-2 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between">
+                    <span className="text-slate-300">Candidate Profile</span>
+                    <kbd className="font-mono font-bold px-2 py-0.5 rounded bg-slate-800 text-indigo-400 border border-slate-700">5</kbd>
+                  </div>
+                  <div className="p-2 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between">
+                    <span className="text-slate-300">Funnel Analytics</span>
+                    <kbd className="font-mono font-bold px-2 py-0.5 rounded bg-slate-800 text-indigo-400 border border-slate-700">6</kbd>
+                  </div>
+                </div>
+              </div>
+
+              {/* System & Power Controls */}
+              <div className="space-y-2">
+                <span className="font-bold text-slate-300 uppercase tracking-wider text-[11px]">System & Actions</span>
+                <div className="grid grid-cols-1 gap-2">
+                  <div className="p-2 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between">
+                    <span className="text-slate-300">Toggle Offline Interactive Demo Mode</span>
+                    <kbd className="font-mono font-bold px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">D</kbd>
+                  </div>
+                  <div className="p-2 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between">
+                    <span className="text-slate-300">Open / Close Shortcuts Cheatsheet</span>
+                    <kbd className="font-mono font-bold px-2 py-0.5 rounded bg-slate-800 text-indigo-400 border border-slate-700">?</kbd>
+                  </div>
+                  <div className="p-2 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between">
+                    <span className="text-slate-300">Close Any Open Modal Dialog</span>
+                    <kbd className="font-mono font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">Esc</kbd>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-slate-800 text-center">
+              <p className="text-[11px] text-slate-500">Shortcuts are disabled when typing inside input or textarea elements.</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
