@@ -42,3 +42,24 @@ class JobEvaluationRead(JobEvaluationResult):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# ================= Multi-Model Evaluation Benchmark =================
+class ModelBenchmarkEntry(BaseModel):
+    provider: str
+    model_name: str
+    overall_score: float
+    technical_score: float
+    recommendation: str
+    latency_ms: int
+    tokens_used: int
+    estimated_cost_usd: float
+    verdict_highlight: str
+
+
+class ModelBenchmarkComparisonResponse(BaseModel):
+    job_id: uuid.UUID
+    job_title: str
+    company_name: str
+    benchmarks: List[ModelBenchmarkEntry]
+    consensus_recommendation: str

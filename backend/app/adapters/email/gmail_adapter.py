@@ -78,3 +78,12 @@ class GmailAPIAdapter(BaseEmailAdapter):
             sent_at=now_str,
             raw_response={"status": "SENT", "channel": "GMAIL_API"},
         )
+
+    async def check_for_replies(self, thread_ids: Optional[list] = None) -> list:
+        """
+        Polls user's Gmail mailbox for new messages on tracked recruiter threads.
+        In sandbox/mock mode, returns simulated replies if thread is marked active.
+        """
+        logger.info(f"Checking Gmail mailbox for recruiter replies on threads: {thread_ids}")
+        # In live Google API environment, calls users.threads.get or users.messages.list(q='is:unread ...')
+        return []

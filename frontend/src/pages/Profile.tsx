@@ -12,7 +12,9 @@ import {
   ShieldCheck,
   Briefcase,
   DollarSign,
-  Download
+  Download,
+  Bookmark,
+  Copy
 } from 'lucide-react';
 
 interface Skill {
@@ -79,6 +81,7 @@ export function ProfilePage() {
   // Preferences state
   const [minSalary, setMinSalary] = useState<number>(185000);
   const [savingPrefs, setSavingPrefs] = useState(false);
+  const [copiedBookmarklet, setCopiedBookmarklet] = useState(false);
 
   useEffect(() => {
     loadProfile();
@@ -424,6 +427,44 @@ export function ProfilePage() {
           </form>
         </section>
       </div>
+
+      {/* Browser Clipper & Tools */}
+      <section className="p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-bold text-white flex items-center gap-2">
+            <Bookmark className="w-5 h-5 text-indigo-400" />
+            One-Click Browser Clipper (Bookmarklet & Extension)
+          </h3>
+          <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 font-semibold border border-indigo-500/20">
+            Chrome • Brave • Edge • Safari
+          </span>
+        </div>
+        <p className="text-xs text-slate-400">
+          Clip job opportunities directly from LinkedIn, Indeed, Greenhouse, or Lever into your local AI Recruiter pipeline with a single click.
+        </p>
+
+        <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-300">Instant JavaScript Bookmarklet</span>
+            <button
+              type="button"
+              onClick={() => {
+                const code = `javascript:(function(){const title=document.querySelector("h1")?.innerText.trim()||document.title.split("-")[0].trim();const url=window.location.href;const company=url.includes("greenhouse.io/")?url.split("greenhouse.io/")[1].split("/")[0]:(url.includes("lever.co/")?url.split("lever.co/")[1].split("/")[0]:prompt("Company Name:","Target Company"));if(!company)return;const desc=(document.querySelector(".job-description")||document.querySelector("main")||document.body).innerText.slice(0,3000);fetch("http://localhost:8000/api/v1/jobs",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title,company_name:company,source_url:url,raw_description:desc,location:"United States (Remote)",remote_type:"REMOTE",min_salary:185000})}).then(r=>r.ok?alert("✓ Opportunity clipped to AI Recruiter!"):alert("Failed to clip. Is backend running?")).catch(e=>alert("Error connecting to http://localhost:8000"));})();`;
+                navigator.clipboard.writeText(code);
+                setCopiedBookmarklet(true);
+                setTimeout(() => setCopiedBookmarklet(false), 2500);
+              }}
+              className="px-3 py-1 rounded bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 border border-indigo-500/30 text-xs font-semibold flex items-center gap-1.5 transition"
+            >
+              {copiedBookmarklet ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+              {copiedBookmarklet ? 'Copied Bookmarklet Code' : 'Copy Bookmarklet Code'}
+            </button>
+          </div>
+          <p className="text-[11px] text-slate-500 leading-relaxed">
+            Create a browser bookmark named <code className="text-indigo-300">⚡ Clip to AI Recruiter</code>, paste this code into the URL field, and click it on any job posting to ingest immediately. Extension files are also located in <code className="text-slate-400 font-mono">extensions/chrome/</code>.
+          </p>
+        </div>
+      </section>
 
       {/* Two Column Layout: Skills & Resume Artifacts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

@@ -6,7 +6,10 @@ celery_app = Celery(
     "ai_recruiter_tasks",
     broker=settings.CELERY_BROKER_URL,
     backend=settings.CELERY_RESULT_BACKEND,
-    include=["app.tasks.discovery_tasks"],
+    include=[
+        "app.tasks.discovery_tasks",
+        "app.tasks.email_sync_tasks",
+    ],
 )
 
 celery_app.conf.update(
@@ -28,6 +31,11 @@ celery_app.conf.update(
         "scheduled_batch_evaluation_hourly": {
             "task": "app.tasks.discovery_tasks.background_batch_evaluation_task",
             "schedule": crontab(minute=30, hour="*"),
+        },
+        # Periodic Gmail inbox reply sync every 15 minutes
+        "scheduled_inbox_sync_every_15m": {
+            "task": "app.tasks.email_sync_tasks.background_inbox_sync_task",
+            "schedule": crontab(minute="*/15"),
         },
     },
 )

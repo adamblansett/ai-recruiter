@@ -156,3 +156,10 @@ async def list_communication_history(
     result = await db.execute(stmt)
     records = result.scalars().all()
     return records
+
+
+@router.post("/sync-inbox", summary="Trigger On-Demand Recruiter Inbox Sync")
+async def trigger_inbox_sync():
+    """Trigger an immediate check of tracked Gmail threads for recruiter responses."""
+    from app.tasks.email_sync_tasks import _run_inbox_sync
+    return await _run_inbox_sync()

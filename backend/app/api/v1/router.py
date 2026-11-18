@@ -4,6 +4,7 @@ from app.api.v1.auth import router as auth_router
 from app.api.v1.candidate import router as candidate_router
 from app.api.v1.evaluations import router as evaluations_router
 from app.api.v1.jobs import router as jobs_router
+from app.api.v1.offer import router as offer_router
 from app.api.v1.outreach import router as outreach_router
 from app.api.v1.recruiters import router as recruiters_router
 from app.api.v1.resumes import router as resumes_router
@@ -18,6 +19,7 @@ api_router.include_router(candidate_router, prefix="/candidate", tags=["Candidat
 api_router.include_router(resumes_router, prefix="/resumes", tags=["Resumes"])
 api_router.include_router(jobs_router, prefix="/jobs", tags=["Job Opportunities"])
 api_router.include_router(evaluations_router, prefix="/evaluations", tags=["AI Evaluations"])
+api_router.include_router(offer_router, tags=["Salary Negotiation & Offers"])
 api_router.include_router(recruiters_router, prefix="/recruiters", tags=["Recruiters & Contacts"])
 api_router.include_router(outreach_router, prefix="/outreach", tags=["Outreach & Human Approval"])
 api_router.include_router(tasks_router, prefix="/tasks", tags=["Background Automation & Tasks"])

@@ -13,7 +13,11 @@ import {
   AlertTriangle, 
   Cpu,
   BookOpen,
-  Download 
+  Download,
+  BarChart2,
+  DollarSign,
+  Copy,
+  Check 
 } from 'lucide-react';
 
 interface JobOpportunity {
@@ -91,6 +95,48 @@ interface InterviewPrepPlan {
   reverse_interview_questions: ReverseInterviewQuestion[];
 }
 
+interface ModelBenchmarkEntry {
+  provider: string;
+  model_name: string;
+  overall_score: number;
+  technical_score: number;
+  recommendation: string;
+  latency_ms: number;
+  tokens_used: number;
+  estimated_cost_usd: number;
+  verdict_highlight: string;
+}
+
+interface ModelBenchmarkComparisonResponse {
+  job_id: string;
+  job_title: string;
+  company_name: string;
+  benchmarks: ModelBenchmarkEntry[];
+  consensus_recommendation: string;
+}
+
+interface CounterTargets {
+  target_base_salary: number;
+  target_equity_annual: number;
+  target_sign_on_bonus: number;
+  target_first_year_tc: number;
+}
+
+interface OfferEvaluationResult {
+  company_name: string;
+  role_title: string;
+  first_year_tc: number;
+  recurring_annual_tc: number;
+  baseline_diff_base: number;
+  market_percentile: string;
+  recommendation: string;
+  verdict_summary: string;
+  leverage_points: string[];
+  counter_targets: CounterTargets;
+  counter_offer_email_script: string;
+  talking_points_phone: string[];
+}
+
 export function JobsPage() {
   const [jobs, setJobs] = useState<JobOpportunity[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -124,6 +170,22 @@ export function JobsPage() {
 
   // Tailored Resume state
   const [tailoringJobId, setTailoringJobId] = useState<string | null>(null);
+
+  // Benchmarks Modal
+  const [benchmarkModalOpen, setBenchmarkModalOpen] = useState(false);
+  const [benchmarkData, setBenchmarkData] = useState<ModelBenchmarkComparisonResponse | null>(null);
+  const [loadingBenchmark, setLoadingBenchmark] = useState(false);
+
+  // Offer Evaluation Modal
+  const [offerModalOpen, setOfferModalOpen] = useState(false);
+  const [offerJob, setOfferJob] = useState<JobOpportunity | null>(null);
+  const [offerBaseSalary, setOfferBaseSalary] = useState(195000);
+  const [offerEquity, setOfferEquity] = useState(45000);
+  const [offerBonus, setOfferBonus] = useState(25000);
+  const [offerSignOn, setOfferSignOn] = useState(20000);
+  const [evaluatingOffer, setEvaluatingOffer] = useState(false);
+  const [offerResult, setOfferResult] = useState<OfferEvaluationResult | null>(null);
+  const [copiedCounterScript, setCopiedCounterScript] = useState(false);
 
   useEffect(() => {
     fetchJobs();
@@ -234,6 +296,57 @@ export function JobsPage() {
       alert('Error generating tailored PDF resume.');
     } finally {
       setTailoringJobId(null);
+    }
+  }
+
+  async function handleRunBenchmark(jobId: string) {
+    try {
+      setLoadingBenchmark(true);
+      setBenchmarkModalOpen(true);
+      const res = await fetch(`/api/v1/evaluations/benchmark/${jobId}`, { method: 'POST' });
+      if (!res.ok) throw new Error('Benchmark failed');
+      const data: ModelBenchmarkComparisonResponse = await res.json();
+      setBenchmarkData(data);
+    } catch {
+      alert('Error running model benchmark comparison.');
+      setBenchmarkModalOpen(false);
+    } finally {
+      setLoadingBenchmark(false);
+    }
+  }
+
+  async function handleOpenOfferModal(job: JobOpportunity) {
+    setOfferJob(job);
+    setOfferBaseSalary(job.min_salary || 195000);
+    setOfferResult(null);
+    setOfferModalOpen(true);
+  }
+
+  async function handleSubmitOfferEvaluation(e: FormEvent) {
+    e.preventDefault();
+    if (!offerJob) return;
+    try {
+      setEvaluatingOffer(true);
+      const res = await fetch('/api/v1/offers/evaluate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          job_id: offerJob.id,
+          company_name: offerJob.company_name || 'Hiring Company',
+          role_title: offerJob.title,
+          base_salary: Number(offerBaseSalary),
+          equity_value_annual: Number(offerEquity),
+          bonus_target_annual: Number(offerBonus),
+          sign_on_bonus: Number(offerSignOn),
+        }),
+      });
+      if (!res.ok) throw new Error('Evaluation failed');
+      const data: OfferEvaluationResult = await res.json();
+      setOfferResult(data);
+    } catch {
+      alert('Error evaluating offer package.');
+    } finally {
+      setEvaluatingOffer(false);
     }
   }
 
@@ -436,6 +549,13 @@ export function JobsPage() {
                       <BookOpen className="w-3.5 h-3.5" /> Prep
                     </button>
                     <button
+                      onClick={() => handleOpenOfferModal(job)}
+                      className="px-2.5 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold flex items-center gap-1 transition"
+                      title="Evaluate Total Comp & Draft Counter-Offer Script"
+                    >
+                      <DollarSign className="w-3.5 h-3.5" /> Offer
+                    </button>
+                    <button
                       onClick={() => handleDownloadTailoredResume(job.id)}
                       disabled={tailoringJobId === job.id}
                       className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-medium flex items-center gap-1 transition disabled:opacity-50"
@@ -577,17 +697,25 @@ export function JobsPage() {
             </div>
 
             {/* Footer with Engine Info */}
-            <div className="border-t border-slate-800 pt-4 flex items-center justify-between text-xs text-slate-500">
+            <div className="border-t border-slate-800 pt-4 flex items-center justify-between text-xs text-slate-500 flex-wrap gap-2">
               <span className="flex items-center gap-1.5 font-mono">
                 <Cpu className="w-3.5 h-3.5 text-violet-400" />
                 Built-in AI • {activeEvaluation.ai_model} (0 keys required)
               </span>
-              <button
-                onClick={() => setEvalModalOpen(false)}
-                className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition"
-              >
-                Close
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleRunBenchmark(activeEvaluation.id ? evaluatingId! : evaluatingId!)}
+                  className="px-3 py-1.5 rounded-lg bg-violet-600/20 hover:bg-violet-600/30 text-violet-300 border border-violet-500/30 font-semibold flex items-center gap-1.5 transition"
+                >
+                  <BarChart2 className="w-3.5 h-3.5" /> Benchmark Models
+                </button>
+                <button
+                  onClick={() => setEvalModalOpen(false)}
+                  className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -804,6 +932,186 @@ export function JobsPage() {
                 )}
               </div>
             ) : null}
+          </div>
+        </div>
+      )}
+      {/* Multi-Model Benchmark Modal */}
+      {benchmarkModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 space-y-5 shadow-2xl my-8">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <BarChart2 className="w-5 h-5 text-violet-400" />
+                  Multi-Model Evaluation Benchmark
+                </h3>
+                <p className="text-xs text-slate-400">
+                  {benchmarkData?.job_title} • {benchmarkData?.company_name}
+                </p>
+              </div>
+              <button onClick={() => setBenchmarkModalOpen(false)} className="text-slate-500 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {loadingBenchmark ? (
+              <div className="p-12 text-center text-slate-400 flex flex-col items-center gap-2">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-500"></div>
+                <p className="text-xs">Benchmarking local built-in vs rule-based vs cloud models...</p>
+              </div>
+            ) : benchmarkData ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs">
+                  <span className="text-slate-400">Consensus Recommendation:</span>
+                  <span className="font-bold text-emerald-400 font-mono text-sm px-2.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20">
+                    {benchmarkData.consensus_recommendation}
+                  </span>
+                </div>
+
+                <div className="space-y-3">
+                  {benchmarkData.benchmarks.map((b, idx) => (
+                    <div key={idx} className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 space-y-1.5 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-white text-sm">{b.model_name}</span>
+                        <span className="font-mono text-indigo-400 font-bold text-sm">{b.overall_score}% Match</span>
+                      </div>
+                      <p className="text-slate-400 text-xs">{b.verdict_highlight}</p>
+                      <div className="flex items-center gap-4 text-[11px] text-slate-500 font-mono pt-1">
+                        <span>Latency: <strong className="text-slate-300">{b.latency_ms}ms</strong></span>
+                        <span>Cost: <strong className="text-emerald-400">{b.estimated_cost_usd === 0 ? '$0.00 (Local)' : `$${b.estimated_cost_usd}`}</strong></span>
+                        <span>Tokens: <strong className="text-slate-300">{b.tokens_used}</strong></span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )}
+
+      {/* Offer Evaluation & Negotiation Modal */}
+      {offerModalOpen && offerJob && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 sm:p-8 space-y-5 shadow-2xl my-8">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                  <DollarSign className="w-5 h-5 text-emerald-400" />
+                  Salary Negotiation & Offer Strategist
+                </h3>
+                <p className="text-xs text-indigo-300 font-medium">
+                  {offerJob.title} • {offerJob.company_name}
+                </p>
+              </div>
+              <button onClick={() => setOfferModalOpen(false)} className="text-slate-500 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitOfferEvaluation} className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Offer Package Breakdown</span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-400">Base Salary ($)</label>
+                  <input
+                    type="number"
+                    value={offerBaseSalary}
+                    onChange={(e) => setOfferBaseSalary(Number(e.target.value))}
+                    className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-slate-900 border border-slate-700 text-white font-mono"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-400">Equity / Yr ($)</label>
+                  <input
+                    type="number"
+                    value={offerEquity}
+                    onChange={(e) => setOfferEquity(Number(e.target.value))}
+                    className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-slate-900 border border-slate-700 text-white font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-400">Bonus Target ($)</label>
+                  <input
+                    type="number"
+                    value={offerBonus}
+                    onChange={(e) => setOfferBonus(Number(e.target.value))}
+                    className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-slate-900 border border-slate-700 text-white font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-400">Sign-on Bonus ($)</label>
+                  <input
+                    type="number"
+                    value={offerSignOn}
+                    onChange={(e) => setOfferSignOn(Number(e.target.value))}
+                    className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-slate-900 border border-slate-700 text-white font-mono"
+                  />
+                </div>
+              </div>
+              <button
+                type="submit"
+                disabled={evaluatingOffer}
+                className="w-full py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow transition disabled:opacity-50"
+              >
+                {evaluatingOffer ? 'Analyzing Market Percentiles...' : 'Evaluate Offer & Generate Counter Script'}
+              </button>
+            </form>
+
+            {/* Offer Result Card */}
+            {offerResult && (
+              <div className="space-y-4 pt-1">
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+                    <span className="text-[10px] text-slate-500 uppercase">First-Year TC</span>
+                    <p className="text-lg font-bold text-emerald-400 font-mono">${offerResult.first_year_tc.toLocaleString()}</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+                    <span className="text-[10px] text-slate-500 uppercase">Recurring TC</span>
+                    <p className="text-lg font-bold text-white font-mono">${offerResult.recurring_annual_tc.toLocaleString()}</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+                    <span className="text-[10px] text-slate-500 uppercase">Market Tier</span>
+                    <p className="text-xs font-bold text-indigo-400 mt-1">{offerResult.market_percentile}</p>
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-slate-300">Recommendation:</span>
+                    <span className="font-bold text-emerald-400 font-mono px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20">
+                      {offerResult.recommendation}
+                    </span>
+                  </div>
+                  <p className="text-slate-400 leading-relaxed">{offerResult.verdict_summary}</p>
+                </div>
+
+                {/* Counter Script */}
+                <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-white">Recommended Counter-Offer Email</span>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(offerResult.counter_offer_email_script);
+                        setCopiedCounterScript(true);
+                        setTimeout(() => setCopiedCounterScript(false), 2500);
+                      }}
+                      className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1 transition"
+                    >
+                      {copiedCounterScript ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                      {copiedCounterScript ? 'Copied' : 'Copy Script'}
+                    </button>
+                  </div>
+                  <textarea
+                    rows={6}
+                    readOnly
+                    value={offerResult.counter_offer_email_script}
+                    className="w-full p-2.5 text-xs rounded-lg bg-slate-900 border border-slate-800 text-slate-300 font-sans focus:outline-none"
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

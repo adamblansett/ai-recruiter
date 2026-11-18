@@ -4,7 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.schemas.evaluation import JobEvaluationRead, JobEvaluationRequest
+from app.schemas.evaluation import (
+    JobEvaluationRead,
+    JobEvaluationRequest,
+    ModelBenchmarkComparisonResponse,
+)
 from app.services.evaluation_service import EvaluationService
 
 router = APIRouter(tags=["AI Evaluations"])
@@ -63,3 +67,18 @@ async def get_job_evaluations(
     """Retrieve all AI evaluations for a specific job opportunity."""
     evals = await EvaluationService.get_evaluations_for_job(db, job_id)
     return [serialize_evaluation(e) for e in evals]
+
+
+@router.post("/benchmark/{job_id}", response_model=ModelBenchmarkComparisonResponse, summary="Compare Multi-Model Evaluation Benchmarks")
+async def benchmark_job_evaluation(
+    job_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Executes a side-by-side benchmark comparison across Local Built-in AI,
+    rule-based heuristics, and simulated cloud models measuring latency, cost, and consensus.
+    """
+    try:
+        return await EvaluationService.benchmark_models(db, job_id)
+    except ValueError as ve:
+        raise HTTPException(status_code=404, detail=str(ve))

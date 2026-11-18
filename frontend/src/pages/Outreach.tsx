@@ -8,7 +8,8 @@ import {
   Trash2, 
   User,
   Copy,
-  Check 
+  Check,
+  RefreshCw 
 } from 'lucide-react';
 
 interface OutreachDraft {
@@ -42,6 +43,23 @@ export function OutreachPage() {
   // Status message
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [syncingInbox, setSyncingInbox] = useState(false);
+
+  async function handleSyncInbox() {
+    try {
+      setSyncingInbox(true);
+      const res = await fetch('/api/v1/outreach/sync-inbox', { method: 'POST' });
+      if (!res.ok) throw new Error('Sync failed');
+      const data = await res.json();
+      setToastMsg(`Gmail sync complete. Checked ${data.sent_threads_checked || 0} tracked threads.`);
+      setTimeout(() => setToastMsg(null), 4000);
+      fetchDrafts();
+    } catch {
+      alert('Error triggering inbox sync.');
+    } finally {
+      setSyncingInbox(false);
+    }
+  }
 
   function handleCopy(draft: OutreachDraft) {
     navigator.clipboard.writeText(draft.body_markdown);
@@ -161,6 +179,16 @@ export function OutreachPage() {
             Dispatched Messages
           </button>
         </div>
+
+        <button
+          onClick={handleSyncInbox}
+          disabled={syncingInbox}
+          className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition disabled:opacity-50"
+          title="Poll Gmail for incoming recruiter replies"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${syncingInbox ? 'animate-spin text-indigo-400' : ''}`} />
+          {syncingInbox ? 'Syncing Gmail...' : 'Sync Inbox Now'}
+        </button>
       </div>
 
       {/* Drafts List */}
